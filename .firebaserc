@@ -1,5 +1,15 @@
 {
   "projects": {
     "default": "worldcup2026-30d8a"
-  }
+  },
+  "targets": {
+    "worldcup2026-30d8a": {
+      "hosting": {
+        "main": [
+          "dudoantrungthuong-worldcup2026"
+        ]
+      }
+    }
+  },
+  "etags": {}
 }
