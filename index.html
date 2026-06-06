@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dự Đoán Trúng Thưởng - FIFA World Cup 2026</title>
+  <link rel="stylesheet" href="styles.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="app">
+    <!-- Header -->
+    <header class="header">
+      <div class="header-bg"></div>
+      <div class="header-content">
+        <div class="trophy-icon">🏆</div>
+        <h1 class="title">FIFA World Cup 2026</h1>
+        <p class="subtitle">Dự Đoán Trúng Thưởng</p>
+        <p class="subtitle-en">Predict the Winner</p>
+        <p class="disclaimer">Chương trình mang tính giải trí, không liên quan đến cá cược dưới mọi hình thức.</p>
+      </div>
+    </header>
+
+    <!-- Navigation Tabs -->
+    <nav class="nav">
+      <div class="nav-tabs" id="navTabs">
+        <button class="nav-tab active" data-view="matches">Matches</button>
+        <button class="nav-tab" data-view="standings">Standings</button>
+        <button class="nav-tab" data-view="bracket">Bracket</button>
+        <button class="nav-tab" data-view="winners">Winners</button>
+        <button class="nav-tab" data-view="my-votes">My Votes</button>
+      </div>
+    </nav>
+
+    <!-- Group Filter -->
+    <div class="group-filter" id="groupFilter">
+      <button class="group-btn active" data-group="all">All</button>
+    </div>
+
+    <!-- Main Content -->
+    <main class="main" id="mainContent">
+    </main>
+
+    <!-- User Profile Modal -->
+    <div class="modal-overlay" id="profileModal">
+      <div class="modal">
+        <div class="modal-title">Enter Your Info to Vote</div>
+        <p class="modal-desc">Email is used to identify you across devices.</p>
+        <form id="profileForm" onsubmit="return submitProfile(event)">
+          <div class="form-group">
+            <label class="form-label" for="userName">Name *</label>
+            <input class="form-input" type="text" id="userName" placeholder="Your name" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="userEmail">Email *</label>
+            <input class="form-input" type="email" id="userEmail" placeholder="your@email.com" required>
+          </div>
+          <button class="modal-submit" type="submit">Continue</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast" id="toast"></div>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <script src="config.js"></script>
+  <script src="data.js"></script>
+  <script src="firebase-sync.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
