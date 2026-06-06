@@ -91,7 +91,7 @@ body > * {
 .header-bg {
   position: absolute;
   inset: 0;
-  background: linear-gradient(135deg, rgba(26, 10, 46, 0.4) 0%, rgba(45, 16, 80, 0.3) 50%, rgba(26, 10, 46, 0.4) 100%);
+  background: transparent;
   background-size: 200% 200%;
   animation: headerShift 8s ease-in-out infinite;
   z-index: 0;
@@ -183,7 +183,7 @@ body > * {
   content: '';
   position: absolute;
   inset: 0;
-  background: radial-gradient(circle at 50% 0%, rgba(139, 92, 246, 0.25) 0%, transparent 60%);
+  background: transparent;
 }
 
 .header-content {
