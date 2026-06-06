@@ -61,8 +61,8 @@ function createFallingIcons() {
     icon.className = "falling-icon";
     icon.textContent = icons[i % icons.length];
     icon.style.left = (Math.random() * 100) + "%";
-    icon.style.animationDuration = (8 + Math.random() * 12) + "s";
-    icon.style.animationDelay = (Math.random() * 10) + "s";
+    icon.style.animationDuration = (3 + Math.random() * 5) + "s";
+    icon.style.animationDelay = (Math.random() * 4) + "s";
     icon.style.fontSize = (0.8 + Math.random() * 0.8) + "rem";
     container.appendChild(icon);
   }
