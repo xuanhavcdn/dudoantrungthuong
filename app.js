@@ -45,9 +45,27 @@ async function init() {
   setupNavTabs();
   setupGroupFilter();
   renderUserBadge();
+  createFallingIcons();
   await fbFullSync();
   render();
   startAutoRefresh();
+}
+
+function createFallingIcons() {
+  const container = document.createElement("div");
+  container.className = "falling-icons";
+  document.body.appendChild(container);
+  const icons = ["⚽", "🏆", "🥅", "⚽", "🏆", "⚽", "🏆", "⚽"];
+  for (let i = 0; i < 12; i++) {
+    const icon = document.createElement("span");
+    icon.className = "falling-icon";
+    icon.textContent = icons[i % icons.length];
+    icon.style.left = (Math.random() * 100) + "%";
+    icon.style.animationDuration = (8 + Math.random() * 12) + "s";
+    icon.style.animationDelay = (Math.random() * 10) + "s";
+    icon.style.fontSize = (0.8 + Math.random() * 0.8) + "rem";
+    container.appendChild(icon);
+  }
 }
 
 function startAutoRefresh() {
