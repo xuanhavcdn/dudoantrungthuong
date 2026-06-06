@@ -498,6 +498,13 @@ function renderUserBadge() {
       <span class="user-badge-edit">edit</span>
     `;
     document.querySelector(".header").appendChild(badge);
+  } else {
+    const loginBtn = document.createElement("div");
+    loginBtn.className = "user-badge login-btn";
+    loginBtn.id = "userBadge";
+    loginBtn.onclick = () => openProfileModal();
+    loginBtn.innerHTML = `<span class="user-badge-name">Login to Vote</span>`;
+    document.querySelector(".header").appendChild(loginBtn);
 
     // Admin toggle button
     const adminBtn = document.createElement("button");
