@@ -38,7 +38,7 @@ body::before {
   content: '';
   position: fixed;
   inset: 0;
-  background: rgba(15, 15, 26, 0.75);
+  background: rgba(15, 15, 26, 0.6);
   z-index: 0;
 }
 
@@ -91,7 +91,7 @@ body > * {
 .header-bg {
   position: absolute;
   inset: 0;
-  background: linear-gradient(135deg, rgba(26, 10, 46, 0.6) 0%, rgba(45, 16, 80, 0.5) 50%, rgba(26, 10, 46, 0.6) 100%);
+  background: linear-gradient(135deg, rgba(26, 10, 46, 0.4) 0%, rgba(45, 16, 80, 0.3) 50%, rgba(26, 10, 46, 0.4) 100%);
   background-size: 200% 200%;
   animation: headerShift 8s ease-in-out infinite;
   z-index: 0;
