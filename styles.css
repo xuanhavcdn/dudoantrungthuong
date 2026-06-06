@@ -42,6 +42,25 @@ body::before {
   z-index: 0;
 }
 
+/* Full-page animations overlay */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(2px 2px at 10% 20%, rgba(255,255,255,0.12), transparent),
+    radial-gradient(2px 2px at 30% 70%, rgba(255,255,255,0.08), transparent),
+    radial-gradient(2px 2px at 50% 40%, rgba(255,255,255,0.1), transparent),
+    radial-gradient(2px 2px at 70% 80%, rgba(255,255,255,0.06), transparent),
+    radial-gradient(2px 2px at 90% 30%, rgba(255,255,255,0.12), transparent),
+    radial-gradient(1px 1px at 15% 55%, rgba(255,255,255,0.08), transparent),
+    radial-gradient(1px 1px at 85% 15%, rgba(255,255,255,0.1), transparent),
+    radial-gradient(1px 1px at 45% 90%, rgba(255,255,255,0.06), transparent);
+  animation: sparkle 4s ease-in-out infinite alternate;
+}
+
 body > * {
   position: relative;
   z-index: 1;
@@ -102,88 +121,41 @@ body > * {
   50% { background-position: 100% 50%; }
 }
 
-/* Football field animation overlay */
+/* Light sweep — now full page via .header-gif repositioned as fixed */
 .header-gif {
-  position: absolute;
+  position: fixed;
   inset: 0;
   z-index: 0;
   overflow: hidden;
+  pointer-events: none;
 }
 
-/* Animated football field lines */
 .header-gif::before {
-  content: '';
-  position: absolute;
-  width: 200%;
-  height: 200%;
-  top: -50%;
-  left: -50%;
-  background:
-    /* center circle */
-    radial-gradient(circle at 50% 50%, transparent 80px, rgba(255,255,255,0.04) 80px, rgba(255,255,255,0.04) 82px, transparent 82px),
-    /* center line */
-    linear-gradient(90deg, transparent 49.8%, rgba(255,255,255,0.04) 49.8%, rgba(255,255,255,0.04) 50.2%, transparent 50.2%),
-    /* field lines horizontal */
-    linear-gradient(0deg, transparent 33%, rgba(255,255,255,0.02) 33%, rgba(255,255,255,0.02) 33.3%, transparent 33.3%, transparent 66%, rgba(255,255,255,0.02) 66%, rgba(255,255,255,0.02) 66.3%, transparent 66.3%);
-  animation: fieldPan 20s linear infinite;
-  opacity: 0.8;
-}
-
-@keyframes fieldPan {
-  0% { transform: translate(0, 0) rotate(-5deg); }
-  50% { transform: translate(-10%, -5%) rotate(0deg); }
-  100% { transform: translate(0, 0) rotate(-5deg); }
-}
-
-/* Animated light sweep */
-.header-gif::after {
   content: '';
   position: absolute;
   top: -100%;
   left: -100%;
   width: 50%;
-  height: 300%;
+  height: 400%;
   background: linear-gradient(
     105deg,
     transparent 40%,
-    rgba(139, 92, 246, 0.06) 45%,
-    rgba(245, 158, 11, 0.08) 50%,
-    rgba(139, 92, 246, 0.06) 55%,
+    rgba(255, 255, 255, 0.04) 45%,
+    rgba(245, 158, 11, 0.06) 50%,
+    rgba(255, 255, 255, 0.04) 55%,
     transparent 60%
   );
-  animation: lightSweep 6s ease-in-out infinite;
+  animation: lightSweep 8s ease-in-out infinite;
 }
 
 @keyframes lightSweep {
   0% { transform: translateX(0) rotate(15deg); }
-  100% { transform: translateX(400%) rotate(15deg); }
-}
-
-.header-bg::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background:
-    radial-gradient(2px 2px at 10% 20%, rgba(255,255,255,0.15), transparent),
-    radial-gradient(2px 2px at 30% 70%, rgba(255,255,255,0.1), transparent),
-    radial-gradient(2px 2px at 50% 40%, rgba(255,255,255,0.12), transparent),
-    radial-gradient(2px 2px at 70% 80%, rgba(255,255,255,0.08), transparent),
-    radial-gradient(2px 2px at 90% 30%, rgba(255,255,255,0.15), transparent),
-    radial-gradient(1px 1px at 15% 55%, rgba(255,255,255,0.1), transparent),
-    radial-gradient(1px 1px at 85% 15%, rgba(255,255,255,0.12), transparent);
-  animation: sparkle 4s ease-in-out infinite alternate;
+  100% { transform: translateX(500%) rotate(15deg); }
 }
 
 @keyframes sparkle {
-  0% { opacity: 0.4; }
+  0% { opacity: 0.3; }
   100% { opacity: 1; }
-}
-
-.header-bg::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: transparent;
 }
 
 .header-content {
