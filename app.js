@@ -63,7 +63,7 @@ function createFallingIcons() {
     icon.style.left = (Math.random() * 100) + "%";
     icon.style.animationDuration = (3 + Math.random() * 5) + "s";
     icon.style.animationDelay = (Math.random() * 4) + "s";
-    icon.style.fontSize = (0.8 + Math.random() * 0.8) + "rem";
+    icon.style.fontSize = (1.2 + Math.random() * 1.0) + "rem";
     container.appendChild(icon);
   }
 }
