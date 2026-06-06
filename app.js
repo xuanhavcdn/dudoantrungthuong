@@ -505,15 +505,15 @@ function renderUserBadge() {
     loginBtn.onclick = () => openProfileModal();
     loginBtn.innerHTML = `<span class="user-badge-name">Login to Vote</span>`;
     document.querySelector(".header").appendChild(loginBtn);
-
-    // Admin toggle button
-    const adminBtn = document.createElement("button");
-    adminBtn.className = `admin-toggle ${adminMode ? 'active' : ''}`;
-    adminBtn.id = "adminToggle";
-    adminBtn.onclick = toggleAdminMode;
-    adminBtn.textContent = adminMode ? "Admin ON" : "Admin";
-    document.querySelector(".header").appendChild(adminBtn);
   }
+
+  // Admin toggle button (always visible)
+  const adminBtn = document.createElement("button");
+  adminBtn.className = `admin-toggle ${adminMode ? 'active' : ''}`;
+  adminBtn.id = "adminToggle";
+  adminBtn.onclick = toggleAdminMode;
+  adminBtn.textContent = adminMode ? "Admin ON" : "Admin";
+  document.querySelector(".header").appendChild(adminBtn);
 }
 
 function openProfileModal() {
