@@ -209,12 +209,7 @@ function formatDate(dateStr) {
   return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
 }
 
-function etToVN(timeStr) {
-  // ET (UTC-4 in summer) to Vietnam (UTC+7) = +11 hours
-  const [h, m] = timeStr.split(":").map(Number);
-  const vnH = (h + 11) % 24;
-  return `${String(vnH).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
-}
+// All match dates/times in data.js are stored in Vietnam time (UTC+7).
 
 // Date filter
 function setDateFilter(filter) {
@@ -444,7 +439,7 @@ function renderMatchCard(match) {
     <div class="match-card ${result ? 'finished' : ''}">
       <div class="match-meta">
         <span class="${roundClass}">${roundLabel}</span>
-        <span class="match-datetime">${match.time} ET / ${etToVN(match.time)} VN</span>
+        <span class="match-datetime">${match.time} (giờ VN)</span>
         <span class="match-status ${statusClass}">${statusText}</span>
       </div>
       <div class="match-teams">
@@ -506,7 +501,7 @@ function renderVoteForm(match, vote, votingDisabled, locked, notYetOpen, result,
     <div class="user-prediction ${voteResultClass}">
       <span class="prediction-label">Your prediction:</span>
       <span class="prediction-score">${match.team1} ${userVote.score1} - ${userVote.score2} ${match.team2}</span>
-      ${result ? (voteResultClass === 'vote-exact' ? '<span class="prediction-badge exact">Exact!</span>' : voteResultClass === 'vote-correct-winner' ? '<span class="prediction-badge correct">Correct winner</span>' : '<span class="prediction-badge wrong">Wrong</span>') : ''}
+      ${result ? (voteResultClass === 'vote-exact' ? '<span class="prediction-badge exact">Win (exact!)</span>' : voteResultClass === 'vote-correct-winner' ? '<span class="prediction-badge correct">Win</span>' : '<span class="prediction-badge wrong">Lose</span>') : ''}
     </div>
   ` : '';
 
@@ -1169,69 +1164,70 @@ function renderWinners() {
   });
   filterHtml += `</div></div>`;
 
-  // Get winning voters per match
+  // Get voters per match
   const matchesToShow = winnersMatchFilter === "all" ? groupFilteredMatches : groupFilteredMatches.filter(m => m.id === winnersMatchFilter);
 
-  // Tally correct predictions per voter across selected matches
-  // Scoring: exact score = 3pts, correct winner = 1pt
-  // Tiebreaker: earliest vote wins
+  // Tally results per voter (grouped by email) across selected matches.
+  // Calculation is win/draw/lose based: a prediction is a WIN when its outcome
+  // (team1 win / draw / team2 win) matches the actual result, otherwise a LOSS.
+  // Exact score is shown as a bonus label but does not change the win/loss count.
+  // Tiebreaker: most wins, then fewest losses, then earliest vote.
   const voterStats = {};
   matchesToShow.forEach(m => {
     const r = results[m.id];
     const correctChoice = r.score1 > r.score2 ? "team1" : r.score2 > r.score1 ? "team2" : "draw";
     const voters = voterLog[m.id] || [];
     voters.forEach(v => {
+      const key = v.email || v.name;
+      if (!voterStats[key]) voterStats[key] = { name: v.name, email: v.email || "", won: 0, lost: 0, exact: 0, played: 0, matches: [], earliestVote: v.timestamp };
+      const s = voterStats[key];
+      s.played++;
+      const isWin = v.choice === correctChoice;
       const isExact = v.score1 === r.score1 && v.score2 === r.score2;
-      const isCorrectWinner = v.choice === correctChoice;
-      if (!isCorrectWinner && !isExact) return;
-
-      if (!voterStats[v.name]) voterStats[v.name] = { name: v.name, points: 0, exact: 0, correct: 0, matches: [], earliestVote: v.timestamp };
-      if (isExact) {
-        voterStats[v.name].exact++;
-        voterStats[v.name].points += 3;
-        voterStats[v.name].matches.push({ ...m, badge: "exact" });
+      if (isWin) {
+        s.won++;
+        if (isExact) s.exact++;
+        s.matches.push({ ...m, badge: isExact ? "exact" : "win" });
       } else {
-        voterStats[v.name].correct++;
-        voterStats[v.name].points += 1;
-        voterStats[v.name].matches.push({ ...m, badge: "correct" });
+        s.lost++;
+        s.matches.push({ ...m, badge: "lose" });
       }
-      if (v.timestamp < voterStats[v.name].earliestVote) {
-        voterStats[v.name].earliestVote = v.timestamp;
-      }
+      if (v.timestamp < s.earliestVote) s.earliestVote = v.timestamp;
     });
   });
 
-  // Sort: most points first, then most exact, then earliest vote
+  // Sort: most wins, then fewest losses, then most exact, then earliest vote
   const sortedVoters = Object.values(voterStats).sort((a, b) => {
-    if (b.points !== a.points) return b.points - a.points;
+    if (b.won !== a.won) return b.won - a.won;
+    if (a.lost !== b.lost) return a.lost - b.lost;
     if (b.exact !== a.exact) return b.exact - a.exact;
     return (a.earliestVote || "").localeCompare(b.earliestVote || "");
   });
 
   const top3 = sortedVoters.slice(0, 3);
-  const rest = sortedVoters.slice(3);
 
   let html = filterHtml;
-  html += `<div class="winners-title">🏆 Top 3 Voters</div>`;
-
-  html += `<div style="font-size:0.72rem;color:var(--text-dim);margin-bottom:16px;">Scoring: Exact score = 3pts | Correct winner = 1pt | Tiebreaker: earliest vote</div>`;
+  html += `<div class="winners-title">🏆 Top 3 Predictors</div>`;
+  html += `<div style="font-size:0.72rem;color:var(--text-dim);margin-bottom:16px;">Win = correct outcome (win / draw / lose) · Exact = exact score · Tiebreaker: fewest losses, then earliest vote</div>`;
 
   if (top3.length === 0) {
-    html += `<div class="no-results"><p>No correct predictions yet</p></div>`;
+    html += `<div class="no-results"><p>No predictions yet</p></div>`;
   } else {
     top3.forEach((voter, i) => {
       const rank = i === 0 ? "🥇" : i === 1 ? "🥈" : "🥉";
       const matchDetails = voter.matches.map(m => {
-        const badge = m.badge === "exact" ? '<span class="prediction-badge exact">Exact</span>' : '<span class="prediction-badge correct">Winner</span>';
+        const badge = m.badge === "exact" ? '<span class="prediction-badge exact">Exact</span>'
+          : m.badge === "win" ? '<span class="prediction-badge correct">Win</span>'
+          : '<span class="prediction-badge wrong">Lose</span>';
         return `<span>${m.flag1} ${m.team1} vs ${m.team2} ${m.flag2} ${badge}</span>`;
       }).join(" ");
-      const voteTime = new Date(voter.earliestVote).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+      const voteTime = new Date(voter.earliestVote).toLocaleString("en-GB", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false });
       html += `
         <div class="winner-card top-${i + 1}">
           <div class="winner-rank">${rank}</div>
           <div class="winner-info">
             <div class="winner-team">${escapeHtml(voter.name)}</div>
-            <div class="winner-stats">${voter.points} pts (${voter.exact} exact, ${voter.correct} correct ${voter.correct === 1 ? 'winner' : 'winners'})</div>
+            <div class="winner-stats"><span class="stat-won">${voter.won} won</span> · <span class="stat-lost">${voter.lost} lost</span>${voter.exact ? ` · ${voter.exact} exact` : ''}</div>
             <div class="winner-matches">${matchDetails}</div>
             <div class="winner-time">First vote: ${voteTime}</div>
           </div>
@@ -1240,20 +1236,31 @@ function renderWinners() {
     });
   }
 
-  // Show remaining voters below
-  if (rest.length > 0) {
-    html += `<div style="margin-top:24px;font-size:0.85rem;font-weight:600;color:var(--text-muted);padding:8px 0;border-bottom:1px solid var(--border);">Other Voters</div>`;
-    rest.forEach((voter, i) => {
-      html += `
-        <div class="winner-card">
-          <div class="winner-rank" style="color:var(--text-dim)">${i + 4}</div>
-          <div class="winner-info">
-            <div class="winner-team">${escapeHtml(voter.name)}</div>
-            <div class="winner-stats">${voter.points} pts (${voter.exact} exact, ${voter.correct} correct)</div>
-          </div>
-        </div>
-      `;
+  // Summary table grouped by email — how many matches won/lost per person
+  if (sortedVoters.length > 0) {
+    html += `<div class="email-summary">
+      <div class="email-summary-title">📊 Summary by Email</div>
+      <div class="email-summary-table">
+        <div class="est-row est-head">
+          <span class="est-cell est-email">Email</span>
+          <span class="est-cell est-name">Name</span>
+          <span class="est-cell est-num">Played</span>
+          <span class="est-cell est-num est-win">Won</span>
+          <span class="est-cell est-num est-lose">Lost</span>
+          <span class="est-cell est-num">Win%</span>
+        </div>`;
+    sortedVoters.forEach(v => {
+      const pct = v.played ? Math.round(v.won / v.played * 100) : 0;
+      html += `<div class="est-row">
+          <span class="est-cell est-email">${escapeHtml(v.email || '—')}</span>
+          <span class="est-cell est-name">${escapeHtml(v.name)}</span>
+          <span class="est-cell est-num">${v.played}</span>
+          <span class="est-cell est-num est-win">${v.won}</span>
+          <span class="est-cell est-num est-lose">${v.lost}</span>
+          <span class="est-cell est-num">${pct}%</span>
+        </div>`;
     });
+    html += `</div></div>`;
   }
 
   mainContent.innerHTML = html;
@@ -1263,16 +1270,20 @@ function renderWinners() {
 function renderMyVotes() {
   const votedMatches = MATCHES.filter(m => votes[m.id]);
 
-  let exact = 0, correct = 0, wrong = 0, pending = 0;
+  // Win/draw/lose calculation: a vote is Won when its outcome matches the result
+  let won = 0, lost = 0, exact = 0, pending = 0;
   votedMatches.forEach(m => {
     const r = results[m.id];
     if (!r) { pending++; return; }
     const v = votes[m.id];
     const winner = r.score1 > r.score2 ? "team1" : r.score2 > r.score1 ? "team2" : "draw";
     const userChoice = v && typeof v === "object" ? (v.score1 > v.score2 ? "team1" : v.score2 > v.score1 ? "team2" : "draw") : v;
-    if (v && typeof v === "object" && v.score1 === r.score1 && v.score2 === r.score2) exact++;
-    else if (userChoice === winner) correct++;
-    else wrong++;
+    if (userChoice === winner) {
+      won++;
+      if (v && typeof v === "object" && v.score1 === r.score1 && v.score2 === r.score2) exact++;
+    } else {
+      lost++;
+    }
   });
 
   const profileHtml = userProfile ? `
@@ -1292,16 +1303,16 @@ function renderMyVotes() {
           <div class="vote-stat-label">Total Votes</div>
         </div>
         <div class="vote-stat">
+          <div class="vote-stat-value correct">${won}</div>
+          <div class="vote-stat-label">Won</div>
+        </div>
+        <div class="vote-stat">
+          <div class="vote-stat-value wrong">${lost}</div>
+          <div class="vote-stat-label">Lost</div>
+        </div>
+        <div class="vote-stat">
           <div class="vote-stat-value" style="color:var(--gold)">${exact}</div>
           <div class="vote-stat-label">Exact</div>
-        </div>
-        <div class="vote-stat">
-          <div class="vote-stat-value correct">${correct}</div>
-          <div class="vote-stat-label">Correct</div>
-        </div>
-        <div class="vote-stat">
-          <div class="vote-stat-value wrong">${wrong}</div>
-          <div class="vote-stat-label">Wrong</div>
         </div>
         <div class="vote-stat">
           <div class="vote-stat-value pending">${pending}</div>

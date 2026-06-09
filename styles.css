@@ -1036,6 +1036,61 @@ body > * {
   margin-top: 4px;
 }
 
+.stat-won { color: var(--green); font-weight: 700; }
+.stat-lost { color: var(--red); font-weight: 700; }
+
+/* Summary by Email table */
+.email-summary {
+  margin-top: 28px;
+}
+
+.email-summary-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 10px;
+}
+
+.email-summary-table {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--card);
+}
+
+.est-row {
+  display: grid;
+  grid-template-columns: minmax(0, 2.4fr) minmax(0, 1.4fr) 0.8fr 0.7fr 0.7fr 0.8fr;
+  align-items: center;
+  gap: 4px;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.78rem;
+}
+
+.est-row:last-child { border-bottom: none; }
+
+.est-head {
+  background: rgba(139, 92, 246, 0.1);
+  font-weight: 700;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.est-cell {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.est-email { color: var(--text-muted); }
+.est-name { color: var(--text); font-weight: 600; }
+.est-num { text-align: center; font-variant-numeric: tabular-nums; }
+.est-win { color: var(--green); font-weight: 700; }
+.est-lose { color: var(--red); font-weight: 700; }
+
 .winner-time {
   font-size: 0.7rem;
   color: var(--accent);
