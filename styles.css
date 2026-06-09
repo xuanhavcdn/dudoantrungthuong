@@ -582,6 +582,37 @@ body > * {
   font-weight: 500;
 }
 
+/* 24h countdown */
+.match-countdown {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 10px;
+  padding: 6px 12px;
+  border: 1px solid var(--gold);
+  border-radius: 8px;
+  background: rgba(245, 158, 11, 0.08);
+}
+
+.match-countdown .countdown-icon {
+  font-size: 0.9rem;
+}
+
+.match-countdown .countdown-label {
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  font-weight: 500;
+}
+
+.match-countdown .countdown-time {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--gold);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.5px;
+}
+
 /* Score Vote Form */
 .score-vote-form {
   display: flex;
@@ -866,6 +897,13 @@ body > * {
 /* Standings Table */
 .standings-group {
   margin-bottom: 24px;
+  background: rgba(20, 20, 36, 0.92);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 16px 18px;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
 }
 
 .standings-group-title {
@@ -880,6 +918,19 @@ body > * {
 .standings-table {
   width: 100%;
   border-collapse: collapse;
+  table-layout: fixed;
+}
+
+/* # column */
+.standings-table th:first-child,
+.standings-table td:first-child {
+  width: 34px;
+}
+
+/* Team column takes remaining space; numeric columns share the rest equally */
+.standings-table th:nth-child(2),
+.standings-table td:nth-child(2) {
+  width: 34%;
 }
 
 .standings-table th {

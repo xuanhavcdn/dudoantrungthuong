@@ -1,7 +1,7 @@
 // Configuration - edit these values for development
 const CONFIG = {
   // Hours before match kickoff that voting opens (e.g., 24 = 24h before, 0.5 = 30min before)
-  VOTE_OPEN_BEFORE_HOURS: 9999,  // Always open until kickoff (set to 24 for 24h-only window)
+  VOTE_OPEN_BEFORE_HOURS: 24,  // Voting opens 24h before kickoff (set to 9999 for always-open)
 
   // Football API settings
   // Get a free key at: https://www.football-data.org/client/register
@@ -10,6 +10,10 @@ const CONFIG = {
 
   // Auto-refresh interval in minutes (0 to disable)
   AUTO_REFRESH_MINUTES: 15,
+
+  // Google Sheets live sync — paste the Apps Script web app URL here.
+  // See google-sheets-sync.gs for setup. Leave empty ("") to disable.
+  SHEETS_WEBHOOK_URL: "",
 
   // Firebase config — get from Firebase Console > Project Settings
   // Set FIREBASE_ENABLED to true after filling in the config
@@ -28,8 +32,12 @@ const CONFIG = {
   // Admin emails that can enter results (leave empty to use password only)
   ADMIN_EMAILS: ["xuanhavcdn@gmail.com"],
 
+  // One-time data reset — bump this string to force every browser to clear its
+  // locally cached votes/voterLog/results once on next load. Set to "" to disable.
+  DATA_RESET_TOKEN: "2026-06-09-reset",
+
   // Test mode — set to true to load fake results & voter data for development
-  TEST_MODE: true,
+  TEST_MODE: false,
   TEST_DATA: {
     // Finished matches with results
     results: {

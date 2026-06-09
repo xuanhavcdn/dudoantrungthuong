@@ -38,8 +38,22 @@ function loadTestData() {
   localStorage.setItem("wc2026_voterlog", JSON.stringify(voterLog));
 }
 
+// One-time local reset — purges cached match data when DATA_RESET_TOKEN changes.
+// Keeps the user's profile (name/email) so people aren't logged out.
+function maybeResetLocalData() {
+  const token = CONFIG.DATA_RESET_TOKEN || "";
+  if (!token) return;
+  if (localStorage.getItem("wc2026_reset_token") === token) return;
+  ["wc2026_votes", "wc2026_voterlog", "wc2026_results"].forEach(k => localStorage.removeItem(k));
+  votes = {};
+  voterLog = {};
+  results = {};
+  localStorage.setItem("wc2026_reset_token", token);
+}
+
 // Init
 async function init() {
+  maybeResetLocalData();
   loadTestData();
   migrateOldVotes();
   setupNavTabs();
@@ -49,6 +63,7 @@ async function init() {
   await fbFullSync();
   render();
   startAutoRefresh();
+  startCountdownTicker();
 }
 
 function createFallingIcons() {
@@ -72,6 +87,36 @@ function startAutoRefresh() {
   if (CONFIG.AUTO_REFRESH_MINUTES > 0) {
     setInterval(() => fetchResults(), CONFIG.AUTO_REFRESH_MINUTES * 60 * 1000);
   }
+}
+
+// Live countdown — ticks every second, refreshes the view at kickoff to lock voting
+function startCountdownTicker() {
+  setInterval(updateCountdowns, 1000);
+}
+
+function formatCountdown(ms) {
+  const totalSec = Math.max(0, Math.floor(ms / 1000));
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  const pad = n => String(n).padStart(2, "0");
+  return `${pad(h)}:${pad(m)}:${pad(s)}`;
+}
+
+function updateCountdowns() {
+  const now = Date.now();
+  let needsRerender = false;
+  document.querySelectorAll(".match-countdown").forEach(el => {
+    const kickoff = parseInt(el.dataset.kickoff, 10);
+    const ms = kickoff - now;
+    if (ms <= 0) {
+      needsRerender = true; // kickoff reached — re-render so voting/removal lock in
+      return;
+    }
+    const timeEl = el.querySelector(".countdown-time");
+    if (timeEl) timeEl.textContent = formatCountdown(ms);
+  });
+  if (needsRerender) render();
 }
 
 // Migrate votes that exist without voter log entries
@@ -356,6 +401,17 @@ function renderMatchCard(match) {
   const notYetOpen = (matchDate - now) > CONFIG.VOTE_OPEN_BEFORE_HOURS * 60 * 60 * 1000;
   const votingDisabled = locked || notYetOpen;
 
+  // 24h countdown — shown when kickoff is within the next 24h and the match hasn't started or finished
+  const msToKickoff = matchDate - now;
+  const within24h = !result && !locked && msToKickoff > 0 && msToKickoff <= 24 * 60 * 60 * 1000;
+  const countdownHtml = within24h ? `
+    <div class="match-countdown" data-kickoff="${matchDate.getTime()}">
+      <span class="countdown-icon">⏱️</span>
+      <span class="countdown-label">Voting closes in</span>
+      <span class="countdown-time">${formatCountdown(msToKickoff)}</span>
+    </div>
+  ` : '';
+
   // Resolve team names for knockout matches
   const resolved = resolveKnockoutTeams(match);
   const team1 = resolved.team1;
@@ -403,6 +459,7 @@ function renderMatchCard(match) {
         </div>
       </div>
       ${result ? `<div class="match-winner-banner">${winner === 'draw' ? 'Draw' : `${winner === 'team1' ? flag1 + ' ' + team1 : flag2 + ' ' + team2} wins!`}</div>` : ''}
+      ${countdownHtml}
       ${renderVoteForm({...match, team1, team2, flag1, flag2}, vote, votingDisabled, locked, notYetOpen, result, winner, totalVotes)}
       ${isAdmin() ? renderAdminPanel(match, result, team1, team2, flag1, flag2) : ''}
     </div>
@@ -658,6 +715,9 @@ function recordVote(matchId, choice, score1, score2, isUpdate) {
   fbSaveVote(matchId, fbData, userProfile.email);
   fbSaveVoterLog(matchId, fbData);
 
+  // Sync to live Google Sheet (no-op if SHEETS_WEBHOOK_URL is empty)
+  if (typeof gsSaveVote === "function") gsSaveVote(match, choice, score1, score2);
+
   const matchLabel = `${match.team1} ${score1}-${score2} ${match.team2}`;
   showToast(isUpdate ? `Vote updated: ${matchLabel}` : `Vote recorded: ${matchLabel}`, "success");
 }
@@ -665,6 +725,22 @@ function recordVote(matchId, choice, score1, score2, isUpdate) {
 function confirmRemoveVote(matchId) {
   const match = MATCHES.find(m => m.id === matchId);
   const label = match ? `${match.team1} vs ${match.team2}` : matchId;
+
+  // Guard: cannot delete once the match has started or has a result
+  if (results[matchId]) {
+    showToast(`${label} — match already finished, vote can't be removed!`, "error");
+    render();
+    return;
+  }
+  if (match) {
+    const matchDate = new Date(`${match.date}T${match.time}:00`);
+    if (new Date() >= matchDate) {
+      showToast(`${label} — match has started, vote can't be removed!`, "error");
+      render();
+      return;
+    }
+  }
+
   if (confirm(`Remove your vote for ${label}?`)) {
     removeVote(matchId);
     render();
@@ -688,6 +764,9 @@ function removeVote(matchId) {
   // Sync to Firebase
   fbRemoveVote(matchId, userProfile.email);
   fbRemoveVoterLog(matchId, userProfile.email);
+
+  // Remove from live Google Sheet (no-op if SHEETS_WEBHOOK_URL is empty)
+  if (typeof gsRemoveVote === "function") gsRemoveVote(matchId, userProfile.email);
 
   showToast("Vote removed", "info");
 }
