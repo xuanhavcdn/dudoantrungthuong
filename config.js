@@ -1,7 +1,7 @@
 // Configuration - edit these values for development
 const CONFIG = {
   // Hours before match kickoff that voting opens (e.g., 24 = 24h before, 0.5 = 30min before)
-  VOTE_OPEN_BEFORE_HOURS: 24,  // Voting opens 24h before kickoff (set to 9999 for always-open)
+  VOTE_OPEN_BEFORE_HOURS: 120,  // Voting opens 5 days before kickoff (set to 9999 for always-open)
 
   // Football API settings
   // Get a free key at: https://www.football-data.org/client/register

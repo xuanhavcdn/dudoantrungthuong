@@ -94,13 +94,22 @@ function startCountdownTicker() {
   setInterval(updateCountdowns, 1000);
 }
 
+// Returns HTML segments: [1 d] [08 h] [34 m] [59 s] — days hidden when 0
 function formatCountdown(ms) {
   const totalSec = Math.max(0, Math.floor(ms / 1000));
-  const h = Math.floor(totalSec / 3600);
+  const d = Math.floor(totalSec / 86400);
+  const h = Math.floor((totalSec % 86400) / 3600);
   const m = Math.floor((totalSec % 3600) / 60);
   const s = totalSec % 60;
   const pad = n => String(n).padStart(2, "0");
-  return `${pad(h)}:${pad(m)}:${pad(s)}`;
+  const seg = (val, unit) => `<span class="cd-seg"><span class="cd-num">${val}</span><span class="cd-unit">${unit}</span></span>`;
+  return (d > 0 ? seg(d, "d") : "") + seg(pad(h), "h") + seg(pad(m), "m") + seg(pad(s), "s");
+}
+
+// Human-readable voting window, e.g. "5 days" or "36h"
+function formatVoteWindow() {
+  const hours = CONFIG.VOTE_OPEN_BEFORE_HOURS;
+  return hours % 24 === 0 ? `${hours / 24} days` : `${hours}h`;
 }
 
 function updateCountdowns() {
@@ -114,7 +123,7 @@ function updateCountdowns() {
       return;
     }
     const timeEl = el.querySelector(".countdown-time");
-    if (timeEl) timeEl.textContent = formatCountdown(ms);
+    if (timeEl) timeEl.innerHTML = formatCountdown(ms);
   });
   if (needsRerender) render();
 }
@@ -396,10 +405,10 @@ function renderMatchCard(match) {
   const notYetOpen = (matchDate - now) > CONFIG.VOTE_OPEN_BEFORE_HOURS * 60 * 60 * 1000;
   const votingDisabled = locked || notYetOpen;
 
-  // 24h countdown — shown when kickoff is within the next 24h and the match hasn't started or finished
+  // Countdown — shown when voting is open (within the voting window) and the match hasn't started or finished
   const msToKickoff = matchDate - now;
-  const within24h = !result && !locked && msToKickoff > 0 && msToKickoff <= 24 * 60 * 60 * 1000;
-  const countdownHtml = within24h ? `
+  const withinWindow = !result && !locked && msToKickoff > 0 && msToKickoff <= CONFIG.VOTE_OPEN_BEFORE_HOURS * 60 * 60 * 1000;
+  const countdownHtml = withinWindow ? `
     <div class="match-countdown" data-kickoff="${matchDate.getTime()}">
       <span class="countdown-icon">⏱️</span>
       <span class="countdown-label">Voting closes in</span>
@@ -537,7 +546,7 @@ function renderVoteForm(match, vote, votingDisabled, locked, notYetOpen, result,
   } else if (locked && !result) {
     formHtml = !userVote ? '<div class="vote-locked-msg">Voting locked - match has started</div>' : '';
   } else if (notYetOpen) {
-    formHtml = `<div class="vote-locked-msg">Voting opens ${CONFIG.VOTE_OPEN_BEFORE_HOURS}h before kickoff</div>`;
+    formHtml = `<div class="vote-locked-msg">Voting opens ${formatVoteWindow()} before kickoff</div>`;
   }
 
   // Voter toggle
@@ -642,7 +651,7 @@ function checkVotingWindow(matchId) {
     const matchDate = new Date(`${match.date}T${match.time}:00`);
     const now = new Date();
     if (now >= matchDate) return `${label} — voting locked, match has started!`;
-    if ((matchDate - now) > CONFIG.VOTE_OPEN_BEFORE_HOURS * 60 * 60 * 1000) return `${label} — voting opens ${CONFIG.VOTE_OPEN_BEFORE_HOURS}h before kickoff`;
+    if ((matchDate - now) > CONFIG.VOTE_OPEN_BEFORE_HOURS * 60 * 60 * 1000) return `${label} — voting opens ${formatVoteWindow()} before kickoff`;
   }
   return null;
 }
