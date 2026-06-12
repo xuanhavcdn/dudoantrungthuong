@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Dự Đoán Trúng Thưởng - FIFA World Cup 2026</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>%F0%9F%8F%86</text></svg>">
-  <link rel="stylesheet" href="styles.css?v=5">
+  <link rel="stylesheet" href="styles.css?v=6">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 </head>
 <body>
@@ -73,6 +73,10 @@
 
     <!-- Toast -->
     <div class="toast" id="toast"></div>
+
+    <!-- Background Music -->
+    <div id="ytMusicPlayer" class="music-player"></div>
+    <button class="music-toggle" id="musicToggle" onclick="toggleMusic()" title="Bật/tắt nhạc" aria-label="Toggle music">🔊</button>
   </div>
 
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
@@ -81,6 +85,6 @@
   <script src="data.js?v=5"></script>
   <script src="firebase-sync.js?v=5"></script>
   <script src="sheets-sync.js?v=5"></script>
-  <script src="app.js?v=5"></script>
+  <script src="app.js?v=6"></script>
 </body>
 </html>

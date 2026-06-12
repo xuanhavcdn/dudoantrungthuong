@@ -325,9 +325,10 @@ function renderMatches() {
     return;
   }
 
-  // Split into upcoming and finished, finished goes to end
-  const upcoming = filtered.filter(m => !results[m.id]);
-  const finished = filtered.filter(m => results[m.id]);
+  // Split into upcoming and finished, finished goes to end; each sorted chronologically
+  const byKickoff = (a, b) => (a.date + a.time).localeCompare(b.date + b.time);
+  const upcoming = filtered.filter(m => !results[m.id]).sort(byKickoff);
+  const finished = filtered.filter(m => results[m.id]).sort(byKickoff);
   const sorted = [...upcoming, ...finished];
 
   // Group matches by date
@@ -350,13 +351,12 @@ function renderMatches() {
   }
 
   // Render finished at the end
-  const finishedInFiltered = filtered.filter(m => results[m.id]);
-  if (finishedInFiltered.length > 0) {
+  if (finished.length > 0) {
     if (hasUpcoming) {
       html += `<div style="margin: 28px 0 12px; font-size: 0.9rem; font-weight: 700; color: var(--text-dim); border-top: 1px solid var(--border); padding-top: 16px;">Finished Matches</div>`;
     }
     const finishedByDate = {};
-    finishedInFiltered.forEach(m => {
+    finished.forEach(m => {
       if (!finishedByDate[m.date]) finishedByDate[m.date] = [];
       finishedByDate[m.date].push(m);
     });
@@ -601,11 +601,11 @@ function openProfileModal() {
   profileModal.classList.add("show");
 }
 
-function submitProfile(e) {
+async function submitProfile(e) {
   e.preventDefault();
   const name = document.getElementById("userName").value.trim();
   const email = document.getElementById("userEmail").value.trim();
-  if (!name || !email) return;
+  if (!name || !email) return false;
 
   userProfile = { name, email };
   localStorage.setItem("wc2026_user", JSON.stringify(userProfile));
@@ -613,14 +613,18 @@ function submitProfile(e) {
   renderUserBadge();
   showToast(`Welcome, ${userProfile.name}!`);
 
-  // Process pending vote if any
+  // Pull this user's existing votes (and fresh results/voter logs) from
+  // Firestore so the UI reflects them without a page reload
+  await fbFullSync();
+
+  // Process pending vote if any — after sync so it wins over older synced data
   if (pendingVote) {
     const pv = pendingVote;
     const choice = pv.score1 > pv.score2 ? "team1" : pv.score2 > pv.score1 ? "team2" : "draw";
     recordVote(pv.matchId, choice, pv.score1, pv.score2);
     pendingVote = null;
-    render();
   }
+  render();
   return false;
 }
 
@@ -889,8 +893,14 @@ function findMatchByTeams(apiMatch) {
 }
 
 // Bracket View
+function isGroupComplete(group) {
+  const groupMatches = MATCHES.filter(m => m.group === group);
+  return groupMatches.length > 0 && groupMatches.every(m => results[m.id]);
+}
+
 function getBracketSlotTeam(slot) {
   // slot like "1A" means 1st in Group A, "2B" means 2nd in Group B
+  // status: "confirmed" = group finished, "projected" = live standings, "seed" = pre-tournament guess
   const clean = slot.replace("*", "");
   const pos = parseInt(clean[0]); // 1 or 2
   const group = clean[1]; // A-L
@@ -899,7 +909,11 @@ function getBracketSlotTeam(slot) {
   if (GROUPS.includes(group)) {
     const standings = calculateStandings(group);
     if (standings.length >= pos && standings[pos - 1].played > 0) {
-      return { name: standings[pos - 1].name, flag: standings[pos - 1].flag };
+      return {
+        name: standings[pos - 1].name,
+        flag: standings[pos - 1].flag,
+        status: isGroupComplete(group) ? "confirmed" : "projected",
+      };
     }
   }
 
@@ -907,10 +921,10 @@ function getBracketSlotTeam(slot) {
   const groupTeams = BRACKET_GROUPS[group];
   if (groupTeams && groupTeams.length >= pos) {
     const team = groupTeams[pos - 1];
-    return { name: team.name, flag: team.flag };
+    return { name: team.name, flag: team.flag, status: "seed" };
   }
 
-  return { name: clean, flag: "🏳️" };
+  return { name: clean, flag: "🏳️", status: "seed" };
 }
 
 function getBracketMatchTeams(matchDef) {
@@ -964,19 +978,28 @@ function renderBracketSlot(matchId) {
     winner = result.score1 > result.score2 ? 1 : result.score2 > result.score1 ? 2 : 0;
   }
 
-  const t1Class = hasResult ? (winner === 1 ? "bk-winner" : "bk-loser") : "";
-  const t2Class = hasResult ? (winner === 2 ? "bk-winner" : "bk-loser") : "";
+  // R32 slots: mark unconfirmed teams (group not finished) with a slot tag + dimmed style
+  const isR32 = !!matchDef.slot1;
+  const pending1 = isR32 && !hasResult && teams.team1.status !== "confirmed";
+  const pending2 = isR32 && !hasResult && teams.team2.status !== "confirmed";
+  const tag1 = pending1 ? `<span class="bk-slot-tag">${teams.label1}</span>` : "";
+  const tag2 = pending2 ? `<span class="bk-slot-tag">${teams.label2}</span>` : "";
+
+  const t1Class = `${hasResult ? (winner === 1 ? "bk-winner" : "bk-loser") : ""}${pending1 ? " bk-projected" : ""}`;
+  const t2Class = `${hasResult ? (winner === 2 ? "bk-winner" : "bk-loser") : ""}${pending2 ? " bk-projected" : ""}`;
   const score1 = hasResult ? result.score1 : "";
   const score2 = hasResult ? result.score2 : "";
 
   return `
     <div class="bk-match ${hasResult ? 'bk-match-done' : ''}" data-match="${matchId}">
       <div class="bk-team ${t1Class}">
+        ${tag1}
         <span class="bk-flag">${teams.team1.flag}</span>
         <span class="bk-name">${teams.team1.name !== "TBD" ? teams.team1.name : teams.label1}</span>
         <span class="bk-score">${score1}</span>
       </div>
       <div class="bk-team ${t2Class}">
+        ${tag2}
         <span class="bk-flag">${teams.team2.flag}</span>
         <span class="bk-name">${teams.team2.name !== "TBD" ? teams.team2.name : teams.label2}</span>
         <span class="bk-score">${score2}</span>
@@ -1041,6 +1064,7 @@ function renderBracket() {
 
   html += '</div></div>';
   html += '<p style="text-align:center;font-size:0.72rem;color:var(--text-dim);margin-top:12px;">Scroll horizontally to see full bracket</p>';
+  html += '<p style="text-align:center;font-size:0.72rem;color:var(--text-dim);margin-top:4px;"><span class="bk-slot-tag">1A</span> Italic teams are projections from current group standings — locked in when their group finishes</p>';
 
   mainContent.innerHTML = html;
 }
@@ -1217,7 +1241,7 @@ function renderWinners() {
 
   let html = filterHtml;
   html += `<div class="winners-title">🏆 Top 3 Predictors</div>`;
-  html += `<div style="font-size:0.72rem;color:var(--text-dim);margin-bottom:16px;">Win = correct outcome (win / draw / lose) · Exact = exact score · Tiebreaker: fewest losses, then earliest vote</div>`;
+  html += `<div class="winners-explainer">Win = correct outcome (win / draw / lose) · Exact = exact score · Tiebreaker: fewest losses, then earliest vote</div>`;
 
   if (top3.length === 0) {
     html += `<div class="no-results"><p>No predictions yet</p></div>`;
@@ -1245,13 +1269,15 @@ function renderWinners() {
     });
   }
 
-  // Summary table grouped by email — how many matches won/lost per person
+  // Summary table grouped by email — how many matches won/lost per person.
+  // Emails are sensitive: only admins see the Email column.
   if (sortedVoters.length > 0) {
+    const showEmail = isAdmin();
     html += `<div class="email-summary">
       <div class="email-summary-title">📊 Summary by Email</div>
-      <div class="email-summary-table">
+      <div class="email-summary-table${showEmail ? '' : ' no-email'}">
         <div class="est-row est-head">
-          <span class="est-cell est-email">Email</span>
+          ${showEmail ? '<span class="est-cell est-email">Email</span>' : ''}
           <span class="est-cell est-name">Name</span>
           <span class="est-cell est-num">Played</span>
           <span class="est-cell est-num est-win">Won</span>
@@ -1261,7 +1287,7 @@ function renderWinners() {
     sortedVoters.forEach(v => {
       const pct = v.played ? Math.round(v.won / v.played * 100) : 0;
       html += `<div class="est-row">
-          <span class="est-cell est-email">${escapeHtml(v.email || '—')}</span>
+          ${showEmail ? `<span class="est-cell est-email">${escapeHtml(v.email || '—')}</span>` : ''}
           <span class="est-cell est-name">${escapeHtml(v.name)}</span>
           <span class="est-cell est-num">${v.played}</span>
           <span class="est-cell est-num est-win">${v.won}</span>
@@ -1277,7 +1303,8 @@ function renderWinners() {
 
 // My Votes View
 function renderMyVotes() {
-  const votedMatches = MATCHES.filter(m => votes[m.id]);
+  const votedMatches = MATCHES.filter(m => votes[m.id])
+    .sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
 
   // Win/draw/lose calculation: a vote is Won when its outcome matches the result
   let won = 0, lost = 0, exact = 0, pending = 0;
@@ -1429,5 +1456,98 @@ function deleteResult(matchId) {
   render();
 }
 
+// ===== Background Music (YouTube) =====
+const MUSIC_VIDEO_ID = "DjyVoxmDSQM";
+let ytPlayer = null;
+let musicMuted = localStorage.getItem("wc2026_music_muted") === "true";
+
+function updateMusicButton() {
+  const btn = document.getElementById("musicToggle");
+  if (!btn) return;
+  btn.textContent = musicMuted ? "🔇" : "🔊";
+  btn.classList.toggle("muted", musicMuted);
+}
+
+function toggleMusic() {
+  musicMuted = !musicMuted;
+  localStorage.setItem("wc2026_music_muted", musicMuted);
+  if (ytPlayer && typeof ytPlayer.mute === "function") {
+    if (musicMuted) {
+      ytPlayer.mute();
+    } else {
+      ytPlayer.unMute();
+      ytPlayer.setVolume(100);
+      ytPlayer.playVideo();
+    }
+  }
+  updateMusicButton();
+}
+
+// Browsers block unmuted autoplay; on user interaction make sure the music
+// is actually playing (and unmuted unless the user muted it). Keeps listening
+// until playback is confirmed — a single attempt can fail (e.g. iOS counts
+// click/touchend as a media gesture, but not pointerdown).
+function ensureMusicPlaying() {
+  if (!ytPlayer || typeof ytPlayer.getPlayerState !== "function") return;
+  const playing = ytPlayer.getPlayerState() === YT.PlayerState.PLAYING;
+  if (playing && (musicMuted || !ytPlayer.isMuted())) {
+    removeMusicGestureListeners();
+    return;
+  }
+  if (!musicMuted) {
+    ytPlayer.unMute();
+    ytPlayer.setVolume(100);
+  }
+  if (!playing) ytPlayer.playVideo();
+}
+
+function addMusicGestureListeners() {
+  document.addEventListener("pointerdown", ensureMusicPlaying);
+  document.addEventListener("click", ensureMusicPlaying);
+  document.addEventListener("keydown", ensureMusicPlaying);
+}
+
+function removeMusicGestureListeners() {
+  document.removeEventListener("pointerdown", ensureMusicPlaying);
+  document.removeEventListener("click", ensureMusicPlaying);
+  document.removeEventListener("keydown", ensureMusicPlaying);
+}
+
+window.onYouTubeIframeAPIReady = function () {
+  ytPlayer = new YT.Player("ytMusicPlayer", {
+    videoId: MUSIC_VIDEO_ID,
+    playerVars: {
+      autoplay: 1,
+      loop: 1,
+      playlist: MUSIC_VIDEO_ID,
+      controls: 0,
+      disablekb: 1,
+      playsinline: 1
+    },
+    events: {
+      onReady: (e) => {
+        if (musicMuted) {
+          e.target.mute();
+        } else {
+          e.target.unMute();
+          e.target.setVolume(100);
+        }
+        e.target.playVideo();
+        updateMusicButton();
+        document.addEventListener("pointerdown", ensureMusicPlaying);
+        document.addEventListener("keydown", ensureMusicPlaying);
+      }
+    }
+  });
+};
+
+function initMusic() {
+  updateMusicButton();
+  const tag = document.createElement("script");
+  tag.src = "https://www.youtube.com/iframe_api";
+  document.head.appendChild(tag);
+}
+
 // Start
 init();
+initMusic();
