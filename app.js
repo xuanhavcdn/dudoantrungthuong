@@ -1501,12 +1501,9 @@ function deleteResult(matchId) {
 }
 
 // ===== Background Music =====
-// Plays a local music.mp3 via <audio> (fast, no iframe). If the file is
-// missing or fails to load, falls back to the YouTube embed.
-const MUSIC_VIDEO_ID = "DjyVoxmDSQM"; // YouTube fallback
+// Plays local Worldcup2026.mp3 via <audio>. No YouTube fallback — the iframe
+// displayed a video thumbnail when scrolling on mobile.
 const bgMusic = document.getElementById("bgMusic");
-let ytPlayer = null;
-let usingYouTube = false;
 let musicMuted = localStorage.getItem("wc2026_music_muted") === "true";
 
 function updateMusicButton() {
@@ -1517,32 +1514,17 @@ function updateMusicButton() {
 }
 
 function musicPlay() {
-  if (usingYouTube) {
-    if (ytPlayer && typeof ytPlayer.playVideo === "function") {
-      ytPlayer.unMute();
-      ytPlayer.setVolume(100);
-      ytPlayer.playVideo();
-    }
-  } else if (bgMusic) {
-    bgMusic.volume = 1;
-    // Blocked autoplay rejects — ensureMusicPlaying retries on user gestures
-    bgMusic.play().catch(() => {});
-  }
+  if (!bgMusic) return;
+  bgMusic.volume = 1;
+  // Blocked autoplay rejects — ensureMusicPlaying retries on user gestures
+  bgMusic.play().catch(() => {});
 }
 
 function musicPause() {
-  if (usingYouTube) {
-    if (ytPlayer && typeof ytPlayer.mute === "function") ytPlayer.mute();
-  } else if (bgMusic) {
-    bgMusic.pause();
-  }
+  if (bgMusic) bgMusic.pause();
 }
 
 function musicIsAudible() {
-  if (usingYouTube) {
-    return !!(ytPlayer && typeof ytPlayer.getPlayerState === "function"
-      && ytPlayer.getPlayerState() === YT.PlayerState.PLAYING && !ytPlayer.isMuted());
-  }
   return !!(bgMusic && !bgMusic.paused);
 }
 
@@ -1578,49 +1560,9 @@ function removeMusicGestureListeners() {
   document.removeEventListener("keydown", ensureMusicPlaying);
 }
 
-function loadYouTubeMusic() {
-  if (usingYouTube) return;
-  usingYouTube = true;
-  const tag = document.createElement("script");
-  tag.src = "https://www.youtube.com/iframe_api";
-  document.head.appendChild(tag);
-}
-
-window.onYouTubeIframeAPIReady = function () {
-  ytPlayer = new YT.Player("ytMusicPlayer", {
-    videoId: MUSIC_VIDEO_ID,
-    playerVars: {
-      autoplay: 1,
-      loop: 1,
-      playlist: MUSIC_VIDEO_ID,
-      controls: 0,
-      disablekb: 1,
-      playsinline: 1
-    },
-    events: {
-      onReady: (e) => {
-        if (musicMuted) {
-          e.target.mute();
-        } else {
-          e.target.unMute();
-          e.target.setVolume(100);
-        }
-        e.target.playVideo();
-        updateMusicButton();
-        addMusicGestureListeners();
-      }
-    }
-  });
-};
-
 function initMusic() {
   updateMusicButton();
-  if (!bgMusic) {
-    loadYouTubeMusic();
-    return;
-  }
-  // music.mp3 missing or unplayable → switch to the YouTube embed
-  bgMusic.addEventListener("error", loadYouTubeMusic);
+  if (!bgMusic) return;
   if (!musicMuted) musicPlay();
   addMusicGestureListeners();
 }

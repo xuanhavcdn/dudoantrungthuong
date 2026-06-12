@@ -1965,17 +1965,6 @@ body > * {
 }
 
 /* ===== Background Music ===== */
-.music-player {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  width: 1px;
-  height: 1px;
-  opacity: 0.01;
-  pointer-events: none;
-  z-index: -1;
-}
-
 .music-toggle {
   position: fixed;
   bottom: 20px;
