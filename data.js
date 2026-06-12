@@ -96,33 +96,34 @@ const MATCHES = [
   { id: "L5", group: "L", date: "2026-06-28", time: "04:00", team1: "Panama", team2: "England", flag1: "🇵🇦", flag2: "🏴󠁧󠁢󠁥󠁮󠁧󠁿" },
   { id: "L6", group: "L", date: "2026-06-28", time: "04:00", team1: "Croatia", team2: "Ghana", flag1: "🇭🇷", flag2: "🇬🇭" },
 
-  // ROUND OF 32 (Vietnam time: June 29 - July 4)
-  { id: "R32-L1", round: "R32", date: "2026-06-29", time: "02:00", team1: "1A", team2: "2B", flag1: "", flag2: "", slot1: "1A", slot2: "2B" },
-  { id: "R32-L2", round: "R32", date: "2026-06-30", time: "00:00", team1: "1C", team2: "2D", flag1: "", flag2: "", slot1: "1C", slot2: "2D" },
-  { id: "R32-R1", round: "R32", date: "2026-06-30", time: "04:00", team1: "1B", team2: "2A", flag1: "", flag2: "", slot1: "1B", slot2: "2A" },
-  { id: "R32-R2", round: "R32", date: "2026-06-30", time: "08:00", team1: "1D", team2: "2C", flag1: "", flag2: "", slot1: "1D", slot2: "2C" },
-  { id: "R32-L3", round: "R32", date: "2026-07-01", time: "00:00", team1: "1E", team2: "2F", flag1: "", flag2: "", slot1: "1E", slot2: "2F" },
-  { id: "R32-L4", round: "R32", date: "2026-07-01", time: "04:00", team1: "1G", team2: "2H", flag1: "", flag2: "", slot1: "1G", slot2: "2H" },
-  { id: "R32-R3", round: "R32", date: "2026-07-01", time: "08:00", team1: "1F", team2: "2E", flag1: "", flag2: "", slot1: "1F", slot2: "2E" },
-  { id: "R32-R4", round: "R32", date: "2026-07-02", time: "00:00", team1: "1H", team2: "2G", flag1: "", flag2: "", slot1: "1H", slot2: "2G" },
-  { id: "R32-L5", round: "R32", date: "2026-07-02", time: "04:00", team1: "1I", team2: "2J", flag1: "", flag2: "", slot1: "1I", slot2: "2J" },
-  { id: "R32-R5", round: "R32", date: "2026-07-02", time: "08:00", team1: "1J", team2: "2I", flag1: "", flag2: "", slot1: "1J", slot2: "2I" },
-  { id: "R32-L6", round: "R32", date: "2026-07-03", time: "00:00", team1: "1K", team2: "2L", flag1: "", flag2: "", slot1: "1K", slot2: "2L" },
-  { id: "R32-R6", round: "R32", date: "2026-07-03", time: "04:00", team1: "1L", team2: "2K", flag1: "", flag2: "", slot1: "1L", slot2: "2K" },
-  { id: "R32-L7", round: "R32", date: "2026-07-03", time: "08:00", team1: "2A", team2: "2B*", flag1: "", flag2: "", slot1: "2A", slot2: "2B*" },
-  { id: "R32-L8", round: "R32", date: "2026-07-04", time: "00:00", team1: "2C", team2: "1D", flag1: "", flag2: "", slot1: "2C", slot2: "1D" },
-  { id: "R32-R7", round: "R32", date: "2026-07-04", time: "04:00", team1: "2B", team2: "1A*", flag1: "", flag2: "", slot1: "2B", slot2: "1A*" },
-  { id: "R32-R8", round: "R32", date: "2026-07-04", time: "08:00", team1: "2D", team2: "1C", flag1: "", flag2: "", slot1: "2D", slot2: "1C" },
+  // ROUND OF 32 — official FIFA bracket (M73-M88), Vietnam time: June 29 - July 4
+  // Slot "3:ABCDF" = best third-place team from one of groups A/B/C/D/F (resolved after group stage)
+  { id: "R32-L3", round: "R32", date: "2026-06-29", time: "02:00", team1: "2A", team2: "2B", flag1: "", flag2: "", slot1: "2A", slot2: "2B" },                  // M73 Los Angeles
+  { id: "R32-R1", round: "R32", date: "2026-06-30", time: "00:00", team1: "1C", team2: "2F", flag1: "", flag2: "", slot1: "1C", slot2: "2F" },                  // M76 Houston
+  { id: "R32-L1", round: "R32", date: "2026-06-30", time: "03:30", team1: "1E", team2: "3rd A/B/C/D/F", flag1: "", flag2: "", slot1: "1E", slot2: "3:ABCDF" },  // M74 Boston
+  { id: "R32-L4", round: "R32", date: "2026-06-30", time: "08:00", team1: "1F", team2: "2C", flag1: "", flag2: "", slot1: "1F", slot2: "2C" },                  // M75 Monterrey
+  { id: "R32-R2", round: "R32", date: "2026-07-01", time: "00:00", team1: "2E", team2: "2I", flag1: "", flag2: "", slot1: "2E", slot2: "2I" },                  // M78 Dallas
+  { id: "R32-L2", round: "R32", date: "2026-07-01", time: "04:00", team1: "1I", team2: "3rd C/D/F/G/H", flag1: "", flag2: "", slot1: "1I", slot2: "3:CDFGH" },  // M77 New Jersey
+  { id: "R32-R3", round: "R32", date: "2026-07-01", time: "08:00", team1: "1A", team2: "3rd C/E/F/H/I", flag1: "", flag2: "", slot1: "1A", slot2: "3:CEFHI" },  // M79 Mexico City
+  { id: "R32-R4", round: "R32", date: "2026-07-01", time: "23:00", team1: "1L", team2: "3rd E/H/I/J/K", flag1: "", flag2: "", slot1: "1L", slot2: "3:EHIJK" },  // M80 Atlanta
+  { id: "R32-L8", round: "R32", date: "2026-07-02", time: "03:00", team1: "1G", team2: "3rd A/E/H/I/J", flag1: "", flag2: "", slot1: "1G", slot2: "3:AEHIJ" },  // M82 Seattle
+  { id: "R32-L7", round: "R32", date: "2026-07-02", time: "07:00", team1: "1D", team2: "3rd B/E/F/I/J", flag1: "", flag2: "", slot1: "1D", slot2: "3:BEFIJ" },  // M81 Santa Clara
+  { id: "R32-L6", round: "R32", date: "2026-07-03", time: "02:00", team1: "1H", team2: "2J", flag1: "", flag2: "", slot1: "1H", slot2: "2J" },                  // M84 Los Angeles
+  { id: "R32-L5", round: "R32", date: "2026-07-03", time: "06:00", team1: "2K", team2: "2L", flag1: "", flag2: "", slot1: "2K", slot2: "2L" },                  // M83 Toronto
+  { id: "R32-R7", round: "R32", date: "2026-07-03", time: "10:00", team1: "1B", team2: "3rd E/F/G/I/J", flag1: "", flag2: "", slot1: "1B", slot2: "3:EFGIJ" },  // M85 Vancouver
+  { id: "R32-R6", round: "R32", date: "2026-07-04", time: "01:00", team1: "2D", team2: "2G", flag1: "", flag2: "", slot1: "2D", slot2: "2G" },                  // M88 Dallas
+  { id: "R32-R5", round: "R32", date: "2026-07-04", time: "05:00", team1: "1J", team2: "2H", flag1: "", flag2: "", slot1: "1J", slot2: "2H" },                  // M86 Miami
+  { id: "R32-R8", round: "R32", date: "2026-07-04", time: "08:30", team1: "1K", team2: "3rd D/E/I/J/L", flag1: "", flag2: "", slot1: "1K", slot2: "3:DEIJL" },  // M87 Kansas City
 
-  // ROUND OF 16 (Vietnam time: July 5-8)
-  { id: "R16-L1", round: "R16", date: "2026-07-05", time: "02:00", team1: "W R32-L1", team2: "W R32-L2", flag1: "", flag2: "", from: ["R32-L1", "R32-L2"] },
-  { id: "R16-L2", round: "R16", date: "2026-07-05", time: "06:00", team1: "W R32-L3", team2: "W R32-L4", flag1: "", flag2: "", from: ["R32-L3", "R32-L4"] },
-  { id: "R16-R1", round: "R16", date: "2026-07-06", time: "02:00", team1: "W R32-R1", team2: "W R32-R2", flag1: "", flag2: "", from: ["R32-R1", "R32-R2"] },
-  { id: "R16-R2", round: "R16", date: "2026-07-06", time: "06:00", team1: "W R32-R3", team2: "W R32-R4", flag1: "", flag2: "", from: ["R32-R3", "R32-R4"] },
-  { id: "R16-L3", round: "R16", date: "2026-07-07", time: "02:00", team1: "W R32-L5", team2: "W R32-L6", flag1: "", flag2: "", from: ["R32-L5", "R32-L6"] },
-  { id: "R16-L4", round: "R16", date: "2026-07-07", time: "06:00", team1: "W R32-L7", team2: "W R32-L8", flag1: "", flag2: "", from: ["R32-L7", "R32-L8"] },
-  { id: "R16-R3", round: "R16", date: "2026-07-08", time: "02:00", team1: "W R32-R5", team2: "W R32-R6", flag1: "", flag2: "", from: ["R32-R5", "R32-R6"] },
-  { id: "R16-R4", round: "R16", date: "2026-07-08", time: "06:00", team1: "W R32-R7", team2: "W R32-R8", flag1: "", flag2: "", from: ["R32-R7", "R32-R8"] },
+  // ROUND OF 16 — official pairings (M89-M96), Vietnam time: July 5-8
+  { id: "R16-L1", round: "R16", date: "2026-07-05", time: "04:00", team1: "W R32-L1", team2: "W R32-L2", flag1: "", flag2: "", from: ["R32-L1", "R32-L2"] },    // M89 = W74 v W77
+  { id: "R16-L2", round: "R16", date: "2026-07-05", time: "00:00", team1: "W R32-L3", team2: "W R32-L4", flag1: "", flag2: "", from: ["R32-L3", "R32-L4"] },    // M90 = W73 v W75
+  { id: "R16-R1", round: "R16", date: "2026-07-06", time: "03:00", team1: "W R32-R1", team2: "W R32-R2", flag1: "", flag2: "", from: ["R32-R1", "R32-R2"] },    // M91 = W76 v W78
+  { id: "R16-R2", round: "R16", date: "2026-07-06", time: "07:00", team1: "W R32-R3", team2: "W R32-R4", flag1: "", flag2: "", from: ["R32-R3", "R32-R4"] },    // M92 = W79 v W80
+  { id: "R16-L3", round: "R16", date: "2026-07-07", time: "02:00", team1: "W R32-L5", team2: "W R32-L6", flag1: "", flag2: "", from: ["R32-L5", "R32-L6"] },    // M93 = W83 v W84
+  { id: "R16-L4", round: "R16", date: "2026-07-07", time: "07:00", team1: "W R32-L7", team2: "W R32-L8", flag1: "", flag2: "", from: ["R32-L7", "R32-L8"] },    // M94 = W81 v W82
+  { id: "R16-R3", round: "R16", date: "2026-07-07", time: "23:00", team1: "W R32-R5", team2: "W R32-R6", flag1: "", flag2: "", from: ["R32-R5", "R32-R6"] },    // M95 = W86 v W88
+  { id: "R16-R4", round: "R16", date: "2026-07-08", time: "03:00", team1: "W R32-R7", team2: "W R32-R8", flag1: "", flag2: "", from: ["R32-R7", "R32-R8"] },    // M96 = W85 v W87
 
   // QUARTER FINALS (Vietnam time: July 10-12)
   { id: "QF-L1", round: "QF", date: "2026-07-10", time: "03:00", team1: "W R16-L1", team2: "W R16-L2", flag1: "", flag2: "", from: ["R16-L1", "R16-L2"] },
@@ -219,29 +220,29 @@ const BRACKET_GROUPS = {
   ],
 };
 
-// Knockout bracket following map.webp structure (FIFA World Cup 2026 - 48 teams, 12 groups A-L)
-// Slot format: "1A" = 1st place Group A, "2B" = 2nd place Group B, etc.
-// Groups I-L are from the extended 12-group format shown in map.webp
+// Knockout bracket — official FIFA World Cup 2026 structure (48 teams, 12 groups A-L)
+// Slot format: "1A" = 1st place Group A, "2B" = 2nd place Group B,
+// "3:ABCDF" = best third-place team from one of groups A/B/C/D/F (FIFA allocation)
 const BRACKET = {
-  // LEFT HALF - Round of 32
-  "R32-L1": { id: "R32-L1", slot1: "1A", slot2: "2B", round: "R32", side: "left", pos: 0 },
-  "R32-L2": { id: "R32-L2", slot1: "1C", slot2: "2D", round: "R32", side: "left", pos: 1 },
-  "R32-L3": { id: "R32-L3", slot1: "1E", slot2: "2F", round: "R32", side: "left", pos: 2 },
-  "R32-L4": { id: "R32-L4", slot1: "1G", slot2: "2H", round: "R32", side: "left", pos: 3 },
-  "R32-L5": { id: "R32-L5", slot1: "1I", slot2: "2J", round: "R32", side: "left", pos: 4 },
-  "R32-L6": { id: "R32-L6", slot1: "1K", slot2: "2L", round: "R32", side: "left", pos: 5 },
-  "R32-L7": { id: "R32-L7", slot1: "2A", slot2: "2B*", round: "R32", side: "left", pos: 6 },
-  "R32-L8": { id: "R32-L8", slot1: "2C", slot2: "1D", round: "R32", side: "left", pos: 7 },
+  // LEFT HALF - Round of 32 (official matches M74, M77, M73, M75, M83, M84, M81, M82)
+  "R32-L1": { id: "R32-L1", slot1: "1E", slot2: "3:ABCDF", round: "R32", side: "left", pos: 0 },
+  "R32-L2": { id: "R32-L2", slot1: "1I", slot2: "3:CDFGH", round: "R32", side: "left", pos: 1 },
+  "R32-L3": { id: "R32-L3", slot1: "2A", slot2: "2B", round: "R32", side: "left", pos: 2 },
+  "R32-L4": { id: "R32-L4", slot1: "1F", slot2: "2C", round: "R32", side: "left", pos: 3 },
+  "R32-L5": { id: "R32-L5", slot1: "2K", slot2: "2L", round: "R32", side: "left", pos: 4 },
+  "R32-L6": { id: "R32-L6", slot1: "1H", slot2: "2J", round: "R32", side: "left", pos: 5 },
+  "R32-L7": { id: "R32-L7", slot1: "1D", slot2: "3:BEFIJ", round: "R32", side: "left", pos: 6 },
+  "R32-L8": { id: "R32-L8", slot1: "1G", slot2: "3:AEHIJ", round: "R32", side: "left", pos: 7 },
 
-  // RIGHT HALF - Round of 32
-  "R32-R1": { id: "R32-R1", slot1: "1B", slot2: "2A", round: "R32", side: "right", pos: 0 },
-  "R32-R2": { id: "R32-R2", slot1: "1D", slot2: "2C", round: "R32", side: "right", pos: 1 },
-  "R32-R3": { id: "R32-R3", slot1: "1F", slot2: "2E", round: "R32", side: "right", pos: 2 },
-  "R32-R4": { id: "R32-R4", slot1: "1H", slot2: "2G", round: "R32", side: "right", pos: 3 },
-  "R32-R5": { id: "R32-R5", slot1: "1J", slot2: "2I", round: "R32", side: "right", pos: 4 },
-  "R32-R6": { id: "R32-R6", slot1: "1L", slot2: "2K", round: "R32", side: "right", pos: 5 },
-  "R32-R7": { id: "R32-R7", slot1: "2B", slot2: "1A*", round: "R32", side: "right", pos: 6 },
-  "R32-R8": { id: "R32-R8", slot1: "2D", slot2: "1C", round: "R32", side: "right", pos: 7 },
+  // RIGHT HALF - Round of 32 (official matches M76, M78, M79, M80, M86, M88, M85, M87)
+  "R32-R1": { id: "R32-R1", slot1: "1C", slot2: "2F", round: "R32", side: "right", pos: 0 },
+  "R32-R2": { id: "R32-R2", slot1: "2E", slot2: "2I", round: "R32", side: "right", pos: 1 },
+  "R32-R3": { id: "R32-R3", slot1: "1A", slot2: "3:CEFHI", round: "R32", side: "right", pos: 2 },
+  "R32-R4": { id: "R32-R4", slot1: "1L", slot2: "3:EHIJK", round: "R32", side: "right", pos: 3 },
+  "R32-R5": { id: "R32-R5", slot1: "1J", slot2: "2H", round: "R32", side: "right", pos: 4 },
+  "R32-R6": { id: "R32-R6", slot1: "2D", slot2: "2G", round: "R32", side: "right", pos: 5 },
+  "R32-R7": { id: "R32-R7", slot1: "1B", slot2: "3:EFGIJ", round: "R32", side: "right", pos: 6 },
+  "R32-R8": { id: "R32-R8", slot1: "1K", slot2: "3:DEIJL", round: "R32", side: "right", pos: 7 },
 
   // LEFT HALF - Round of 16
   "R16-L1": { id: "R16-L1", from: ["R32-L1", "R32-L2"], round: "R16", side: "left", pos: 0 },

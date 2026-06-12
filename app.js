@@ -898,9 +898,51 @@ function isGroupComplete(group) {
   return groupMatches.length > 0 && groupMatches.every(m => results[m.id]);
 }
 
+// Best 8 third-place teams assigned to the third-place slots ("3:ABCDF" etc.).
+// Only resolvable once ALL groups are complete. Backtracking finds a valid
+// assignment (approximation of FIFA's official allocation table).
+function getThirdPlaceAssignments() {
+  if (!GROUPS.every(isGroupComplete)) return null;
+  const thirds = GROUPS.map(g => ({ group: g, ...calculateStandings(g)[2] }));
+  thirds.sort((a, b) => b.points - a.points || b.gd - a.gd || b.gf - a.gf);
+  const qualified = thirds.slice(0, 8);
+
+  const slots = [];
+  Object.values(BRACKET).forEach(def => {
+    [def.slot1, def.slot2].forEach(s => { if (s && s.startsWith("3:")) slots.push(s); });
+  });
+
+  const assignment = {};
+  const used = new Set();
+  function assign(i) {
+    if (i === slots.length) return true;
+    const allowed = slots[i].slice(2);
+    for (const t of qualified) {
+      if (used.has(t.group) || !allowed.includes(t.group)) continue;
+      used.add(t.group);
+      assignment[slots[i]] = t;
+      if (assign(i + 1)) return true;
+      used.delete(t.group);
+      delete assignment[slots[i]];
+    }
+    return false;
+  }
+  return assign(0) ? assignment : null;
+}
+
 function getBracketSlotTeam(slot) {
-  // slot like "1A" means 1st in Group A, "2B" means 2nd in Group B
+  // slot like "1A" means 1st in Group A, "2B" means 2nd in Group B,
+  // "3:ABCDF" = best third-place team from one of groups A/B/C/D/F
   // status: "confirmed" = group finished, "projected" = live standings, "seed" = pre-tournament guess
+  if (slot.startsWith("3:")) {
+    const assignments = getThirdPlaceAssignments();
+    if (assignments && assignments[slot]) {
+      const t = assignments[slot];
+      return { name: t.name, flag: t.flag, status: "confirmed" };
+    }
+    return { name: "3rd " + slot.slice(2).split("").join("/"), flag: "", status: "seed" };
+  }
+
   const clean = slot.replace("*", "");
   const pos = parseInt(clean[0]); // 1 or 2
   const group = clean[1]; // A-L
@@ -930,11 +972,13 @@ function getBracketSlotTeam(slot) {
 function getBracketMatchTeams(matchDef) {
   // R32 matches have slot1/slot2
   if (matchDef.slot1) {
+    // Third-place slots get no tag — the resolved/placeholder name is self-explanatory
+    const slotLabel = s => s.startsWith("3:") ? "" : s.replace("*", "");
     return {
       team1: getBracketSlotTeam(matchDef.slot1),
       team2: getBracketSlotTeam(matchDef.slot2),
-      label1: matchDef.slot1.replace("*", ""),
-      label2: matchDef.slot2.replace("*", ""),
+      label1: slotLabel(matchDef.slot1),
+      label2: slotLabel(matchDef.slot2),
     };
   }
   // Later rounds pull from winners of previous matches
@@ -982,8 +1026,8 @@ function renderBracketSlot(matchId) {
   const isR32 = !!matchDef.slot1;
   const pending1 = isR32 && !hasResult && teams.team1.status !== "confirmed";
   const pending2 = isR32 && !hasResult && teams.team2.status !== "confirmed";
-  const tag1 = pending1 ? `<span class="bk-slot-tag">${teams.label1}</span>` : "";
-  const tag2 = pending2 ? `<span class="bk-slot-tag">${teams.label2}</span>` : "";
+  const tag1 = pending1 && teams.label1 ? `<span class="bk-slot-tag">${teams.label1}</span>` : "";
+  const tag2 = pending2 && teams.label2 ? `<span class="bk-slot-tag">${teams.label2}</span>` : "";
 
   const t1Class = `${hasResult ? (winner === 1 ? "bk-winner" : "bk-loser") : ""}${pending1 ? " bk-projected" : ""}`;
   const t2Class = `${hasResult ? (winner === 2 ? "bk-winner" : "bk-loser") : ""}${pending2 ? " bk-projected" : ""}`;
