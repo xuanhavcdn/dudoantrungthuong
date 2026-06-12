@@ -1456,9 +1456,13 @@ function deleteResult(matchId) {
   render();
 }
 
-// ===== Background Music (YouTube) =====
-const MUSIC_VIDEO_ID = "DjyVoxmDSQM";
+// ===== Background Music =====
+// Plays a local music.mp3 via <audio> (fast, no iframe). If the file is
+// missing or fails to load, falls back to the YouTube embed.
+const MUSIC_VIDEO_ID = "DjyVoxmDSQM"; // YouTube fallback
+const bgMusic = document.getElementById("bgMusic");
 let ytPlayer = null;
+let usingYouTube = false;
 let musicMuted = localStorage.getItem("wc2026_music_muted") === "true";
 
 function updateMusicButton() {
@@ -1468,37 +1472,54 @@ function updateMusicButton() {
   btn.classList.toggle("muted", musicMuted);
 }
 
-function toggleMusic() {
-  musicMuted = !musicMuted;
-  localStorage.setItem("wc2026_music_muted", musicMuted);
-  if (ytPlayer && typeof ytPlayer.mute === "function") {
-    if (musicMuted) {
-      ytPlayer.mute();
-    } else {
+function musicPlay() {
+  if (usingYouTube) {
+    if (ytPlayer && typeof ytPlayer.playVideo === "function") {
       ytPlayer.unMute();
       ytPlayer.setVolume(100);
       ytPlayer.playVideo();
     }
+  } else if (bgMusic) {
+    bgMusic.volume = 1;
+    // Blocked autoplay rejects — ensureMusicPlaying retries on user gestures
+    bgMusic.play().catch(() => {});
   }
+}
+
+function musicPause() {
+  if (usingYouTube) {
+    if (ytPlayer && typeof ytPlayer.mute === "function") ytPlayer.mute();
+  } else if (bgMusic) {
+    bgMusic.pause();
+  }
+}
+
+function musicIsAudible() {
+  if (usingYouTube) {
+    return !!(ytPlayer && typeof ytPlayer.getPlayerState === "function"
+      && ytPlayer.getPlayerState() === YT.PlayerState.PLAYING && !ytPlayer.isMuted());
+  }
+  return !!(bgMusic && !bgMusic.paused);
+}
+
+function toggleMusic() {
+  musicMuted = !musicMuted;
+  localStorage.setItem("wc2026_music_muted", musicMuted);
+  if (musicMuted) musicPause();
+  else musicPlay();
   updateMusicButton();
 }
 
 // Browsers block unmuted autoplay; on user interaction make sure the music
-// is actually playing (and unmuted unless the user muted it). Keeps listening
-// until playback is confirmed — a single attempt can fail (e.g. iOS counts
-// click/touchend as a media gesture, but not pointerdown).
+// is actually playing. Keeps listening until playback is confirmed — a single
+// attempt can fail (e.g. iOS counts click/touchend as a media gesture, but
+// not pointerdown).
 function ensureMusicPlaying() {
-  if (!ytPlayer || typeof ytPlayer.getPlayerState !== "function") return;
-  const playing = ytPlayer.getPlayerState() === YT.PlayerState.PLAYING;
-  if (playing && (musicMuted || !ytPlayer.isMuted())) {
+  if (musicMuted || musicIsAudible()) {
     removeMusicGestureListeners();
     return;
   }
-  if (!musicMuted) {
-    ytPlayer.unMute();
-    ytPlayer.setVolume(100);
-  }
-  if (!playing) ytPlayer.playVideo();
+  musicPlay();
 }
 
 function addMusicGestureListeners() {
@@ -1511,6 +1532,14 @@ function removeMusicGestureListeners() {
   document.removeEventListener("pointerdown", ensureMusicPlaying);
   document.removeEventListener("click", ensureMusicPlaying);
   document.removeEventListener("keydown", ensureMusicPlaying);
+}
+
+function loadYouTubeMusic() {
+  if (usingYouTube) return;
+  usingYouTube = true;
+  const tag = document.createElement("script");
+  tag.src = "https://www.youtube.com/iframe_api";
+  document.head.appendChild(tag);
 }
 
 window.onYouTubeIframeAPIReady = function () {
@@ -1534,8 +1563,7 @@ window.onYouTubeIframeAPIReady = function () {
         }
         e.target.playVideo();
         updateMusicButton();
-        document.addEventListener("pointerdown", ensureMusicPlaying);
-        document.addEventListener("keydown", ensureMusicPlaying);
+        addMusicGestureListeners();
       }
     }
   });
@@ -1543,9 +1571,14 @@ window.onYouTubeIframeAPIReady = function () {
 
 function initMusic() {
   updateMusicButton();
-  const tag = document.createElement("script");
-  tag.src = "https://www.youtube.com/iframe_api";
-  document.head.appendChild(tag);
+  if (!bgMusic) {
+    loadYouTubeMusic();
+    return;
+  }
+  // music.mp3 missing or unplayable → switch to the YouTube embed
+  bgMusic.addEventListener("error", loadYouTubeMusic);
+  if (!musicMuted) musicPlay();
+  addMusicGestureListeners();
 }
 
 // Start
