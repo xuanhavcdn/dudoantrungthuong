@@ -1,0 +1,190 @@
+rules_version = '2';
+
+// =============================================================================
+// Firestore security rules for the World Cup 2026 prediction app.
+//
+// NO LOGIN MODEL: users self-identify with a typed name + email (no auth), so
+// these rules CANNOT verify who someone is. What they DO enforce server-side:
+//
+//   - votes / voterLog : readable by all; can only be written/edited/deleted
+//     BEFORE kickoff (server clock vs the trusted schedule below), with valid
+//     scores. This is the real fix for "users could edit a vote after the match
+//     started/ended" — it holds even if the device clock/timezone is wrong or
+//     someone hits the DB directly.
+//   - results : readable by all, writable from the app (in-app admin panel).
+//
+// NOTE: because there is no real authentication, the rules cannot stop someone
+// from voting under another name, or from forging results. That is an accepted
+// trade-off of the name+email model.
+//
+// Kickoff times below are GENERATED from data.js (Vietnam time, UTC+7) as epoch
+// millis. If you change any match date/time in data.js, regenerate this file:
+//     node gen-firestore-rules.js   then redeploy:
+//     firebase deploy --only firestore:rules
+// =============================================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ----- trusted kickoff schedule (epoch millis, UTC) -----
+    function kickoffMillis(matchId) {
+      return {
+        'A1': 1781204400000,
+        'A2': 1781229600000,
+        'A3': 1781830800000,
+        'A4': 1781798400000,
+        'A5': 1782349200000,
+        'A6': 1782349200000,
+        'B1': 1781290800000,
+        'B2': 1781377200000,
+        'B3': 1781820000000,
+        'B4': 1781809200000,
+        'B5': 1782327600000,
+        'B6': 1782327600000,
+        'C1': 1781388000000,
+        'C2': 1781398800000,
+        'C3': 1781915400000,
+        'C4': 1781906400000,
+        'C5': 1782338400000,
+        'C6': 1782338400000,
+        'D1': 1781312400000,
+        'D2': 1781409600000,
+        'D3': 1781895600000,
+        'D4': 1781924400000,
+        'D5': 1782439200000,
+        'D6': 1782439200000,
+        'E1': 1781456400000,
+        'E2': 1781478000000,
+        'E3': 1781985600000,
+        'E4': 1782000000000,
+        'E5': 1782417600000,
+        'E6': 1782417600000,
+        'F1': 1781467200000,
+        'F2': 1781488800000,
+        'F3': 1781974800000,
+        'F4': 1782014400000,
+        'F5': 1782428400000,
+        'F6': 1782428400000,
+        'G1': 1781550000000,
+        'G2': 1781571600000,
+        'G3': 1782068400000,
+        'G4': 1782090000000,
+        'G5': 1782529200000,
+        'G6': 1782529200000,
+        'H1': 1781539200000,
+        'H2': 1781560800000,
+        'H3': 1782057600000,
+        'H4': 1782079200000,
+        'H5': 1782518400000,
+        'H6': 1782518400000,
+        'I1': 1781636400000,
+        'I2': 1781647200000,
+        'I3': 1782162000000,
+        'I4': 1782172800000,
+        'I5': 1782500400000,
+        'I6': 1782500400000,
+        'J1': 1781658000000,
+        'J2': 1781668800000,
+        'J3': 1782147600000,
+        'J4': 1782183600000,
+        'J5': 1782612000000,
+        'J6': 1782612000000,
+        'K1': 1781715600000,
+        'K2': 1781748000000,
+        'K3': 1782234000000,
+        'K4': 1782266400000,
+        'K5': 1782603000000,
+        'K6': 1782603000000,
+        'L1': 1781726400000,
+        'L2': 1781737200000,
+        'L3': 1782244800000,
+        'L4': 1782255600000,
+        'L5': 1782594000000,
+        'L6': 1782594000000,
+        'R32-L3': 1782673200000,
+        'R32-R1': 1782752400000,
+        'R32-L1': 1782765000000,
+        'R32-L4': 1782781200000,
+        'R32-R2': 1782838800000,
+        'R32-L2': 1782853200000,
+        'R32-R3': 1782867600000,
+        'R32-R4': 1782921600000,
+        'R32-L8': 1782936000000,
+        'R32-L7': 1782950400000,
+        'R32-L6': 1783018800000,
+        'R32-L5': 1783033200000,
+        'R32-R7': 1783047600000,
+        'R32-R6': 1783101600000,
+        'R32-R5': 1783116000000,
+        'R32-R8': 1783128600000,
+        'R16-L1': 1783198800000,
+        'R16-L2': 1783184400000,
+        'R16-R1': 1783281600000,
+        'R16-R2': 1783296000000,
+        'R16-L3': 1783364400000,
+        'R16-L4': 1783382400000,
+        'R16-R3': 1783440000000,
+        'R16-R4': 1783454400000,
+        'QF-L1': 1783627200000,
+        'QF-L2': 1783713600000,
+        'QF-R1': 1783796400000,
+        'QF-R2': 1783810800000,
+        'SF-L': 1784055600000,
+        'SF-R': 1784142000000,
+        '3P': 1784404800000,
+        'FINAL': 1784487600000
+      }.get(matchId, 0);
+    }
+    // Voting is open only when the match exists in the schedule and kickoff is
+    // still in the future (server clock). Unknown match -> 0 -> closed.
+    function votingOpen(matchId) {
+      return kickoffMillis(matchId) > 0
+        && request.time.toMillis() < kickoffMillis(matchId);
+    }
+
+    // ----- value validation -----
+    function validScore(v) {
+      return v is int && v >= 0 && v <= 30;
+    }
+    // A vote/voterLog write must target a real, still-open match with sane
+    // scores. docId is kept as "<email>_<matchId>" so each identity has a single
+    // row per match (the app builds it this way). Other fields (choice, team
+    // labels, timestamp) are allowed; user-controlled text is size-capped.
+    function validVoteWrite(docId, data) {
+      return data.email is string
+        && data.matchId is string
+        && docId == data.email + '_' + data.matchId
+        && validScore(data.score1) && validScore(data.score2)
+        && (!('name' in data) || (data.name is string && data.name.size() <= 80))
+        && votingOpen(data.matchId);
+    }
+
+    // ===== results: public read, app-writable (in-app admin panel) =====
+    match /results/{matchId} {
+      allow read: if true;
+      allow write: if request.method == 'delete'
+        || (validScore(request.resource.data.score1)
+            && validScore(request.resource.data.score2));
+    }
+
+    // ===== votes (one row per identity per match) =====
+    match /votes/{docId} {
+      allow read: if true;
+      allow create, update: if validVoteWrite(docId, request.resource.data);
+      // a vote may only be removed before kickoff
+      allow delete: if votingOpen(resource.data.matchId);
+    }
+
+    // ===== voterLog (public scoreboard rows) =====
+    match /voterLog/{docId} {
+      allow read: if true;
+      allow create, update: if validVoteWrite(docId, request.resource.data);
+      allow delete: if votingOpen(resource.data.matchId);
+    }
+
+    // Deny everything else by default.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

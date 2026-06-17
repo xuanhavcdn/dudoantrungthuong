@@ -203,10 +203,19 @@ function render() {
   }
 }
 
+// Kickoff instant for a match. All dates/times in data.js are Vietnam time
+// (UTC+7), so we MUST anchor parsing to that offset. A bare
+// `new Date("2026-06-12T02:00:00")` is parsed in the *viewer's* local timezone,
+// which makes the voting lock fire hours early/late for anyone not in UTC+7 —
+// e.g. a viewer in UTC+0 could keep voting ~7h after kickoff.
+function matchKickoff(match) {
+  return new Date(`${match.date}T${match.time}:00+07:00`);
+}
+
 // Match status
 function getMatchStatus(match) {
   if (results[match.id]) return "finished";
-  const matchDate = new Date(`${match.date}T${match.time}:00`);
+  const matchDate = matchKickoff(match);
   const now = new Date();
   if (now >= matchDate && now <= new Date(matchDate.getTime() + 2 * 60 * 60 * 1000)) return "live";
   if (now > matchDate) return "past";
@@ -399,7 +408,7 @@ function renderMatchCard(match) {
   const vote = votes[match.id];
   const totalVotes = getVoteCounts(match.id);
 
-  const matchDate = new Date(`${match.date}T${match.time}:00`);
+  const matchDate = matchKickoff(match);
   const now = new Date();
   const locked = now >= matchDate;
   const notYetOpen = (matchDate - now) > CONFIG.VOTE_OPEN_BEFORE_HOURS * 60 * 60 * 1000;
@@ -652,7 +661,7 @@ function checkVotingWindow(matchId) {
   const label = match ? `${match.team1} vs ${match.team2}` : matchId;
   if (results[matchId]) return `${label} — match already finished!`;
   if (match) {
-    const matchDate = new Date(`${match.date}T${match.time}:00`);
+    const matchDate = matchKickoff(match);
     const now = new Date();
     if (now >= matchDate) return `${label} — voting locked, match has started!`;
     if ((matchDate - now) > CONFIG.VOTE_OPEN_BEFORE_HOURS * 60 * 60 * 1000) return `${label} — voting opens ${formatVoteWindow()} before kickoff`;
@@ -741,7 +750,7 @@ function confirmRemoveVote(matchId) {
     return;
   }
   if (match) {
-    const matchDate = new Date(`${match.date}T${match.time}:00`);
+    const matchDate = matchKickoff(match);
     if (new Date() >= matchDate) {
       showToast(`${label} — match has started, vote can't be removed!`, "error");
       render();
@@ -1406,7 +1415,7 @@ function renderMyVotes() {
     html += `<div class="no-results"><div class="no-results-icon">🗳️</div><p>You haven't voted on any matches yet</p></div>`;
   } else {
     votedMatches.forEach(m => {
-      const matchDate = new Date(`${m.date}T${m.time}:00`);
+      const matchDate = matchKickoff(m);
       const canRemove = !results[m.id] && new Date() < matchDate;
       html += `<div class="my-vote-wrapper">`;
       html += renderMatchCard(m);
