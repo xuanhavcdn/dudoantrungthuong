@@ -83,6 +83,7 @@ async function fbLoadAllVoterLogs() {
         choice: d.choice,
         score1: d.score1,
         score2: d.score2,
+        penWinner: d.penWinner,
         timestamp: d.timestamp,
       });
     });
@@ -102,7 +103,9 @@ async function fbLoadUserVotes(userEmail) {
     snapshot.forEach(doc => {
       const d = doc.data();
       if (d.score1 !== undefined && d.score2 !== undefined) {
-        votes[d.matchId] = { score1: d.score1, score2: d.score2 };
+        const v = { score1: d.score1, score2: d.score2 };
+        if (d.penWinner) v.penWinner = d.penWinner;
+        votes[d.matchId] = v;
       } else if (d.choice) {
         votes[d.matchId] = d.choice;
       }
@@ -113,7 +116,9 @@ async function fbLoadUserVotes(userEmail) {
   }
 }
 
-// Save match result to Firestore
+// Save match result to Firestore.
+// Full replace (no merge) so penalty fields are dropped when a result is edited
+// from a level score back to a decisive one.
 async function fbSaveResult(matchId, resultData) {
   if (!db) return;
   try {
@@ -121,7 +126,7 @@ async function fbSaveResult(matchId, resultData) {
       matchId,
       ...resultData,
       updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-    }, { merge: true });
+    });
   } catch (err) {
     console.error("Firebase save result failed:", err);
   }
@@ -135,7 +140,9 @@ async function fbLoadResults() {
     snapshot.forEach(doc => {
       const d = doc.data();
       if (d.score1 !== undefined && d.score2 !== undefined) {
-        results[d.matchId] = { score1: d.score1, score2: d.score2 };
+        const r = { score1: d.score1, score2: d.score2 };
+        if (d.pen1 != null && d.pen2 != null) { r.pen1 = d.pen1; r.pen2 = d.pen2; }
+        results[d.matchId] = r;
       }
     });
     localStorage.setItem("wc2026_results", JSON.stringify(results));

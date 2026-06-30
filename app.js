@@ -61,6 +61,7 @@ async function init() {
   renderUserBadge();
   createFallingIcons();
   await fbFullSync();
+  updateGroupFilter();
   render();
   startAutoRefresh();
   startCountdownTicker();
@@ -157,7 +158,7 @@ function setupNavTabs() {
       document.querySelectorAll(".nav-tab").forEach(t => t.classList.remove("active"));
       tab.classList.add("active");
       currentView = tab.dataset.view;
-      groupFilter.style.display = (currentView === "matches" || currentView === "standings") ? "flex" : "none";
+      updateGroupFilter();
       mainContent.classList.toggle("bracket-mode", currentView === "bracket");
       render();
     });
@@ -167,7 +168,7 @@ function setupNavTabs() {
 function setupGroupFilter() {
   GROUPS.forEach(g => {
     const btn = document.createElement("button");
-    btn.className = "group-btn";
+    btn.className = "group-btn group-stage-btn";
     btn.dataset.group = g;
     btn.textContent = `Group ${g}`;
     groupFilter.appendChild(btn);
@@ -190,6 +191,26 @@ function setupGroupFilter() {
     currentGroup = e.target.dataset.group;
     render();
   });
+}
+
+// Toggle the group-filter row, and hide per-group (A–L) buttons on the
+// matches view once the group stage is over — only knockout rounds remain.
+function updateGroupFilter() {
+  const visible = currentView === "matches" || currentView === "standings";
+  groupFilter.style.display = visible ? "flex" : "none";
+
+  const hideGroupStage = currentView === "matches" && GROUPS.every(isGroupComplete);
+  document.querySelectorAll(".group-stage-btn").forEach(b => {
+    b.style.display = hideGroupStage ? "none" : "";
+  });
+
+  // If a (now-hidden) group was selected, fall back to "All".
+  if (hideGroupStage && GROUPS.includes(currentGroup)) {
+    currentGroup = "all";
+    document.querySelectorAll(".group-btn").forEach(b => {
+      b.classList.toggle("active", b.dataset.group === "all");
+    });
+  }
 }
 
 // Render
@@ -276,6 +297,47 @@ function getRoundLabel(match) {
   return "Group " + match.group;
 }
 
+// Knockout matches (Round of 32 onward) have no group and can't end level —
+// a draw in regulation/extra time is settled by a penalty shootout.
+function isKnockoutMatch(match) {
+  return !!match && !match.group;
+}
+
+// True when a result carries a recorded penalty shootout score.
+function hasPenalties(result) {
+  return !!result && result.pen1 != null && result.pen2 != null;
+}
+
+// Decide the winner of a result, honoring knockout penalty shootouts.
+// Returns "team1" | "team2" | "draw", or null when there is no result.
+// Penalties are only consulted when the regulation score is level.
+function getResultWinner(result) {
+  if (!result) return null;
+  if (result.score1 > result.score2) return "team1";
+  if (result.score2 > result.score1) return "team2";
+  if (hasPenalties(result) && result.pen1 !== result.pen2) {
+    return result.pen1 > result.pen2 ? "team1" : "team2";
+  }
+  return "draw";
+}
+
+// The team a vote backs to advance. For a predicted draw in a knockout match,
+// the bettor's penalty pick (penWinner) breaks the tie, mirroring getResultWinner.
+function getVoteWinner(vote, match) {
+  if (!vote || vote.score1 == null || vote.score2 == null) return null;
+  const base = vote.score1 > vote.score2 ? "team1" : vote.score2 > vote.score1 ? "team2" : "draw";
+  if (base === "draw" && isKnockoutMatch(match) && (vote.penWinner === "team1" || vote.penWinner === "team2")) {
+    return vote.penWinner;
+  }
+  return base;
+}
+
+// Read the currently selected penalty-winner radio in a vote form.
+function readPenWinner(matchId) {
+  const sel = document.querySelector(`input[name="pen-${matchId}"]:checked`);
+  return sel ? sel.value : null;
+}
+
 function renderMatchFilters() {
   // Show dates only for the currently selected group/round
   const knockoutRounds = ["R32", "R16", "QF", "SF", "FINAL"];
@@ -287,7 +349,11 @@ function renderMatchFilters() {
   } else {
     scopedMatches = MATCHES.filter(m => m.group === currentGroup);
   }
-  const allDates = [...new Set(scopedMatches.map(m => m.date))].sort();
+  // Hide past dates — only show today and upcoming match days
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+  const allDates = [...new Set(scopedMatches.map(m => m.date))].filter(d => d >= todayStr).sort();
   const finishedCount = scopedMatches.filter(m => results[m.id]).length;
   const upcomingCount = scopedMatches.length - finishedCount;
 
@@ -434,20 +500,17 @@ function renderMatchCard(match) {
 
   let scoreHtml = `<div class="match-vs">VS</div>`;
   if (result) {
-    scoreHtml = `<div class="match-score">${result.score1} - ${result.score2}</div>`;
+    const penHtml = hasPenalties(result)
+      ? `<span class="match-pen">pen ${result.pen1} - ${result.pen2}</span>` : '';
+    scoreHtml = `<div class="match-score">${result.score1} - ${result.score2}${penHtml}</div>`;
   }
 
   let statusClass = status === "past" ? "upcoming" : status;
   let statusText = status === "upcoming" ? "Upcoming" : status === "live" ? "LIVE" : status === "past" ? "Awaiting Result" : "Finished";
   if (result) { statusClass = "finished"; statusText = "Finished"; }
 
-  // Determine winner for vote highlighting
-  let winner = null;
-  if (result) {
-    if (result.score1 > result.score2) winner = "team1";
-    else if (result.score2 > result.score1) winner = "team2";
-    else winner = "draw";
-  }
+  // Determine winner for vote highlighting (penalties settle a level knockout)
+  const winner = getResultWinner(result);
 
   // Round label
   const roundLabel = match.group ? `GROUP ${match.group}` : getRoundLabel(match);
@@ -471,7 +534,7 @@ function renderMatchCard(match) {
           <span class="team-name">${team2}</span>
         </div>
       </div>
-      ${result ? `<div class="match-winner-banner">${winner === 'draw' ? 'Draw' : `${winner === 'team1' ? flag1 + ' ' + team1 : flag2 + ' ' + team2} wins!`}</div>` : ''}
+      ${result ? `<div class="match-winner-banner">${winner === 'draw' ? 'Draw' : `${winner === 'team1' ? flag1 + ' ' + team1 : flag2 + ' ' + team2} wins${hasPenalties(result) ? ' on penalties' : ''}!`}</div>` : ''}
       ${countdownHtml}
       ${renderVoteForm({...match, team1, team2, flag1, flag2}, vote, votingDisabled, locked, notYetOpen, result, winner, totalVotes)}
       ${isAdmin() ? renderAdminPanel(match, result, team1, team2, flag1, flag2) : ''}
@@ -482,6 +545,22 @@ function renderMatchCard(match) {
 function renderAdminPanel(match, result, team1, team2, flag1, flag2) {
   const s1 = result ? result.score1 : '';
   const s2 = result ? result.score2 : '';
+
+  // Knockout rounds (R32+) need a penalty shootout score whenever the match is level.
+  const knockout = isKnockoutMatch(match);
+  const p1 = hasPenalties(result) ? result.pen1 : '';
+  const p2 = hasPenalties(result) ? result.pen2 : '';
+  const penRow = knockout ? `
+      <div class="admin-pen-row">
+        <span class="admin-pen-label">⚽ Penalties (only if drawn)</span>
+        <span class="admin-team">${flag1} ${team1}</span>
+        <input type="number" min="0" max="30" class="svf-input" id="res-p1-${match.id}" value="${p1}" placeholder="–">
+        <span class="svf-separator">-</span>
+        <input type="number" min="0" max="30" class="svf-input" id="res-p2-${match.id}" value="${p2}" placeholder="–">
+        <span class="admin-team">${team2} ${flag2}</span>
+      </div>
+  ` : '';
+
   return `
     <div class="admin-panel">
       <div class="admin-label">ADMIN: Enter Result</div>
@@ -494,6 +573,7 @@ function renderAdminPanel(match, result, team1, team2, flag1, flag2) {
         <button class="admin-save-btn" onclick="submitResult('${match.id}')">Save</button>
         ${result ? `<button class="admin-delete-btn" onclick="deleteResult('${match.id}')">Delete</button>` : ''}
       </div>
+      ${penRow}
     </div>
   `;
 }
@@ -502,13 +582,20 @@ function renderAdminPanel(match, result, team1, team2, flag1, flag2) {
 function renderVoteForm(match, vote, votingDisabled, locked, notYetOpen, result, winner, totalVotes) {
   // vote is now an object: { score1, score2 } or legacy string
   const userVote = typeof vote === 'object' && vote !== null ? vote : null;
-  const userChoice = userVote ? (userVote.score1 > userVote.score2 ? 'team1' : userVote.score2 > userVote.score1 ? 'team2' : 'draw') : (typeof vote === 'string' ? vote : null);
+
+  // Did the user pick a penalty winner for a predicted knockout draw?
+  const showVotePen = userVote && isKnockoutMatch(match) && userVote.penWinner &&
+    userVote.score1 === userVote.score2;
+  const votePenName = showVotePen ? (userVote.penWinner === 'team1' ? match.team1 : match.team2) : '';
 
   let voteResultClass = '';
   if (userVote && result) {
-    const exactMatch = userVote.score1 === result.score1 && userVote.score2 === result.score2;
-    const correctWinner = userChoice === winner;
-    if (exactMatch) voteResultClass = 'vote-exact';
+    // The advancing team is what counts; penalties settle a level knockout.
+    const predictedWinner = getVoteWinner(userVote, match);
+    const actualWinner = getResultWinner(result);
+    const exactScore = userVote.score1 === result.score1 && userVote.score2 === result.score2;
+    const correctWinner = predictedWinner === actualWinner;
+    if (exactScore && correctWinner) voteResultClass = 'vote-exact';
     else if (correctWinner) voteResultClass = 'vote-correct-winner';
     else voteResultClass = 'vote-wrong';
   }
@@ -518,7 +605,7 @@ function renderVoteForm(match, vote, votingDisabled, locked, notYetOpen, result,
   const userPredictionHtml = showLockedPrediction ? `
     <div class="user-prediction ${voteResultClass}">
       <span class="prediction-label">Your prediction:</span>
-      <span class="prediction-score">${match.team1} ${userVote.score1} - ${userVote.score2} ${match.team2}</span>
+      <span class="prediction-score">${match.team1} ${userVote.score1} - ${userVote.score2} ${match.team2}${showVotePen ? ` <span class="prediction-pen">(pen: ${votePenName})</span>` : ''}</span>
       ${result ? (voteResultClass === 'vote-exact' ? '<span class="prediction-badge exact">Win (exact!)</span>' : voteResultClass === 'vote-correct-winner' ? '<span class="prediction-badge correct">Win</span>' : '<span class="prediction-badge wrong">Lose</span>') : ''}
     </div>
   ` : '';
@@ -542,6 +629,28 @@ function renderVoteForm(match, vote, votingDisabled, locked, notYetOpen, result,
   if (!result && !locked && !notYetOpen) {
     const s1 = userVote ? userVote.score1 : '';
     const s2 = userVote ? userVote.score2 : '';
+
+    // Knockout matches can't end level — let the bettor pick who advances on penalties.
+    let penPickHtml = '';
+    if (isKnockoutMatch(match)) {
+      const pw = userVote && userVote.penWinner ? userVote.penWinner : '';
+      penPickHtml = `
+        <div class="pen-vote-row">
+          <span class="pen-vote-label">⚽ If drawn — who advances on penalties?</span>
+          <div class="pen-vote-options">
+            <label class="pen-opt ${pw === 'team1' ? 'sel' : ''}">
+              <input type="radio" name="pen-${match.id}" value="team1" ${pw === 'team1' ? 'checked' : ''}>
+              <span>${match.flag1} ${match.team1}</span>
+            </label>
+            <label class="pen-opt ${pw === 'team2' ? 'sel' : ''}">
+              <input type="radio" name="pen-${match.id}" value="team2" ${pw === 'team2' ? 'checked' : ''}>
+              <span>${match.flag2} ${match.team2}</span>
+            </label>
+          </div>
+        </div>
+      `;
+    }
+
     formHtml = `
       <div class="score-vote-form">
         <span class="svf-team">${match.flag1} ${match.team1}</span>
@@ -551,6 +660,7 @@ function renderVoteForm(match, vote, votingDisabled, locked, notYetOpen, result,
         <span class="svf-team">${match.team2} ${match.flag2}</span>
         <button class="svf-btn" onclick="castScoreVote('${match.id}')">${userVote ? 'Update' : 'Vote'}</button>
       </div>
+      ${penPickHtml}
     `;
   } else if (locked && !result) {
     formHtml = !userVote ? '<div class="vote-locked-msg">Voting locked - match has started</div>' : '';
@@ -630,7 +740,7 @@ async function submitProfile(e) {
   if (pendingVote) {
     const pv = pendingVote;
     const choice = pv.score1 > pv.score2 ? "team1" : pv.score2 > pv.score1 ? "team2" : "draw";
-    recordVote(pv.matchId, choice, pv.score1, pv.score2);
+    recordVote(pv.matchId, choice, pv.score1, pv.score2, false, pv.penWinner);
     pendingVote = null;
   }
   render();
@@ -669,6 +779,16 @@ function checkVotingWindow(matchId) {
   return null;
 }
 
+// Resolve the penalty pick for a knockout draw prediction.
+// Returns { ok, penWinner } — ok is false when a pick is required but missing.
+function resolveVotePenWinner(matchId, s1, s2) {
+  const match = MATCHES.find(m => m.id === matchId);
+  if (!match || !isKnockoutMatch(match) || s1 !== s2) return { ok: true, penWinner: null };
+  const penWinner = readPenWinner(matchId);
+  if (!penWinner) return { ok: false, penWinner: null };
+  return { ok: true, penWinner };
+}
+
 function castScoreVote(matchId) {
   const err = checkVotingWindow(matchId);
   if (err) { showToast(err, "error"); return; }
@@ -677,7 +797,9 @@ function castScoreVote(matchId) {
     const s1 = parseInt(document.getElementById(`svf-s1-${matchId}`).value);
     const s2 = parseInt(document.getElementById(`svf-s2-${matchId}`).value);
     if (isNaN(s1) || isNaN(s2) || s1 < 0 || s2 < 0) { showToast("Enter valid scores", "error"); return; }
-    pendingVote = { matchId, score1: s1, score2: s2 };
+    const pen = resolveVotePenWinner(matchId, s1, s2);
+    if (!pen.ok) { showToast("You predicted a draw — pick who advances on penalties", "error"); return; }
+    pendingVote = { matchId, score1: s1, score2: s2, penWinner: pen.penWinner };
     openProfileModal();
     return;
   }
@@ -689,30 +811,38 @@ function castScoreVote(matchId) {
     return;
   }
 
+  const pen = resolveVotePenWinner(matchId, s1, s2);
+  if (!pen.ok) { showToast("You predicted a draw — pick who advances on penalties", "error"); return; }
+
   const isUpdate = !!votes[matchId];
   const choice = s1 > s2 ? "team1" : s2 > s1 ? "team2" : "draw";
-  recordVote(matchId, choice, s1, s2, isUpdate);
+  recordVote(matchId, choice, s1, s2, isUpdate, pen.penWinner);
   render();
 }
 
-function recordVote(matchId, choice, score1, score2, isUpdate) {
-  votes[matchId] = { score1, score2 };
+function recordVote(matchId, choice, score1, score2, isUpdate, penWinner) {
+  const voteObj = { score1, score2 };
+  if (penWinner) voteObj.penWinner = penWinner;
+  votes[matchId] = voteObj;
   localStorage.setItem("wc2026_votes", JSON.stringify(votes));
 
   const match = MATCHES.find(m => m.id === matchId);
   const choiceName = choice === "team1" ? match.team1 : choice === "team2" ? match.team2 : "Draw";
+  const penWinnerName = penWinner ? (penWinner === "team1" ? match.team1 : match.team2) : null;
 
   // Add to voter log
   if (!voterLog[matchId]) voterLog[matchId] = [];
   voterLog[matchId] = voterLog[matchId].filter(v => v.email !== userProfile.email);
-  voterLog[matchId].push({
+  const voterEntry = {
     name: userProfile.name,
     email: userProfile.email || null,
     choice,
     score1,
     score2,
     timestamp: new Date().toISOString()
-  });
+  };
+  if (penWinner) voterEntry.penWinner = penWinner;
+  voterLog[matchId].push(voterEntry);
   localStorage.setItem("wc2026_voterlog", JSON.stringify(voterLog));
 
   // Sync to Firebase with readable fields
@@ -729,13 +859,18 @@ function recordVote(matchId, choice, score1, score2, isUpdate) {
     score2,
     timestamp: new Date().toISOString(),
   };
+  if (penWinner) {
+    fbData.penWinner = penWinner;
+    fbData.penWinnerName = penWinnerName;
+  }
   fbSaveVote(matchId, fbData, userProfile.email);
   fbSaveVoterLog(matchId, fbData);
 
   // Sync to live Google Sheet (no-op if SHEETS_WEBHOOK_URL is empty)
   if (typeof gsSaveVote === "function") gsSaveVote(match, choice, score1, score2);
 
-  const matchLabel = `${match.team1} ${score1}-${score2} ${match.team2}`;
+  const penLabel = penWinner ? ` (pen: ${penWinnerName})` : '';
+  const matchLabel = `${match.team1} ${score1}-${score2} ${match.team2}${penLabel}`;
   showToast(isUpdate ? `Vote updated: ${matchLabel}` : `Vote recorded: ${matchLabel}`, "success");
 }
 
@@ -812,6 +947,9 @@ function renderVoterList(match) {
   const choiceLabel = (v) => {
     if (v.choice === "team1") return match.team1;
     if (v.choice === "team2") return match.team2;
+    if (v.penWinner && isKnockoutMatch(match)) {
+      return `Draw → ${v.penWinner === "team1" ? match.team1 : match.team2}`;
+    }
     return "Draw";
   };
 
@@ -822,13 +960,16 @@ function renderVoterList(match) {
   };
 
   const result = results[match.id];
+  const actualWinner = getResultWinner(result);
 
   const rows = voters.map(v => {
     const hasScore = v.score1 !== undefined && v.score2 !== undefined;
     let extraClass = '';
     if (hasScore && result) {
-      if (v.score1 === result.score1 && v.score2 === result.score2) extraClass = 'voter-exact';
-      else if (v.choice === (result.score1 > result.score2 ? 'team1' : result.score2 > result.score1 ? 'team2' : 'draw')) extraClass = 'voter-correct';
+      const exactScore = v.score1 === result.score1 && v.score2 === result.score2;
+      const correctWinner = getVoteWinner(v, match) === actualWinner;
+      if (exactScore && correctWinner) extraClass = 'voter-exact';
+      else if (correctWinner) extraClass = 'voter-correct';
     }
     const scoreHtml = hasScore
       ? `<div class="voter-score-predict"><span class="vsp-num">${v.score1}</span> <span class="vsp-sep">-</span> <span class="vsp-num">${v.score2}</span></div>`
@@ -867,10 +1008,16 @@ async function fetchResults() {
             // Try to match with our data
             const ourMatch = findMatchByTeams(apiMatch);
             if (ourMatch) {
-              results[ourMatch.id] = {
+              const r = {
                 score1: apiMatch.score.fullTime.home,
                 score2: apiMatch.score.fullTime.away,
               };
+              const pens = apiMatch.score.penalties;
+              if (pens && pens.home != null && pens.away != null) {
+                r.pen1 = pens.home;
+                r.pen2 = pens.away;
+              }
+              results[ourMatch.id] = r;
             }
           }
         });
@@ -907,36 +1054,33 @@ function isGroupComplete(group) {
   return groupMatches.length > 0 && groupMatches.every(m => results[m.id]);
 }
 
-// Best 8 third-place teams assigned to the third-place slots ("3:ABCDF" etc.).
-// Only resolvable once ALL groups are complete. Backtracking finds a valid
-// assignment (approximation of FIFA's official allocation table).
+// Best 8 third-place teams assigned to the third-place slots ("3:ABCDF" etc.)
+// using FIFA's OFFICIAL Annex C allocation table (THIRD_PLACE_ALLOCATION),
+// keyed on WHICH eight groups qualify. Constraint-solving could pick a valid but
+// non-official pairing (e.g. swapping which group winner faces which third-place
+// team), so we look the assignment up instead. Only resolvable once ALL groups
+// are complete.
 function getThirdPlaceAssignments() {
   if (!GROUPS.every(isGroupComplete)) return null;
+
   const thirds = GROUPS.map(g => ({ group: g, ...calculateStandings(g)[2] }));
   thirds.sort((a, b) => b.points - a.points || b.gd - a.gd || b.gf - a.gf);
   const qualified = thirds.slice(0, 8);
 
-  const slots = [];
-  Object.values(BRACKET).forEach(def => {
-    [def.slot1, def.slot2].forEach(s => { if (s && s.startsWith("3:")) slots.push(s); });
-  });
+  // Look up the official allocation for this exact set of qualifying groups.
+  const key = qualified.map(t => t.group).sort().join("");
+  const alloc = THIRD_PLACE_ALLOCATION[key];
+  if (!alloc) return null; // every valid 8-of-12 combination is in the table
 
+  const byGroup = {};
+  qualified.forEach(t => { byGroup[t.group] = t; });
+
+  // alloc[i] is the third-place group that fills column i's slot.
   const assignment = {};
-  const used = new Set();
-  function assign(i) {
-    if (i === slots.length) return true;
-    const allowed = slots[i].slice(2);
-    for (const t of qualified) {
-      if (used.has(t.group) || !allowed.includes(t.group)) continue;
-      used.add(t.group);
-      assignment[slots[i]] = t;
-      if (assign(i + 1)) return true;
-      used.delete(t.group);
-      delete assignment[slots[i]];
-    }
-    return false;
+  for (let i = 0; i < THIRD_PLACE_SLOT_BY_COLUMN.length; i++) {
+    assignment[THIRD_PLACE_SLOT_BY_COLUMN[i]] = byGroup[alloc[i]];
   }
-  return assign(0) ? assignment : null;
+  return assignment;
 }
 
 function getBracketSlotTeam(slot) {
@@ -1004,14 +1148,16 @@ function getBracketMatchTeams(matchDef) {
 
     if (r1) {
       const prev = getBracketMatchTeams(prev1);
-      if (r1.score1 > r1.score2) { team1 = prev.team1; label1 = prev.team1.name; }
-      else if (r1.score2 > r1.score1) { team1 = prev.team2; label1 = prev.team2.name; }
+      const w1 = getResultWinner(r1);
+      if (w1 === "team1") { team1 = prev.team1; label1 = prev.team1.name; }
+      else if (w1 === "team2") { team1 = prev.team2; label1 = prev.team2.name; }
       else { team1 = { name: "PEN?", flag: "" }; label1 = "Pending"; }
     }
     if (r2) {
       const prev = getBracketMatchTeams(prev2);
-      if (r2.score1 > r2.score2) { team2 = prev.team1; label2 = prev.team1.name; }
-      else if (r2.score2 > r2.score1) { team2 = prev.team2; label2 = prev.team2.name; }
+      const w2 = getResultWinner(r2);
+      if (w2 === "team1") { team2 = prev.team1; label2 = prev.team1.name; }
+      else if (w2 === "team2") { team2 = prev.team2; label2 = prev.team2.name; }
       else { team2 = { name: "PEN?", flag: "" }; label2 = "Pending"; }
     }
 
@@ -1028,7 +1174,8 @@ function renderBracketSlot(matchId) {
   const hasResult = !!result;
   let winner = null;
   if (hasResult) {
-    winner = result.score1 > result.score2 ? 1 : result.score2 > result.score1 ? 2 : 0;
+    const w = getResultWinner(result);
+    winner = w === "team1" ? 1 : w === "team2" ? 2 : 0;
   }
 
   // R32 slots: mark unconfirmed teams (group not finished) with a slot tag + dimmed style
@@ -1040,8 +1187,9 @@ function renderBracketSlot(matchId) {
 
   const t1Class = `${hasResult ? (winner === 1 ? "bk-winner" : "bk-loser") : ""}${pending1 ? " bk-projected" : ""}`;
   const t2Class = `${hasResult ? (winner === 2 ? "bk-winner" : "bk-loser") : ""}${pending2 ? " bk-projected" : ""}`;
-  const score1 = hasResult ? result.score1 : "";
-  const score2 = hasResult ? result.score2 : "";
+  const pen = hasResult && hasPenalties(result);
+  const score1 = hasResult ? (pen ? `${result.score1} (${result.pen1})` : result.score1) : "";
+  const score2 = hasResult ? (pen ? `${result.score2} (${result.pen2})` : result.score2) : "";
 
   return `
     <div class="bk-match ${hasResult ? 'bk-match-done' : ''}" data-match="${matchId}">
@@ -1100,8 +1248,9 @@ function renderBracket() {
   let champion = null;
   if (finalResult) {
     const teams = getBracketMatchTeams(BRACKET["FINAL"]);
-    if (finalResult.score1 > finalResult.score2) champion = teams.team1;
-    else if (finalResult.score2 > finalResult.score1) champion = teams.team2;
+    const w = getResultWinner(finalResult);
+    if (w === "team1") champion = teams.team1;
+    else if (w === "team2") champion = teams.team2;
   }
   html += `<div class="bk-trophy">${champion ? `<div class="bk-champion-flag">${champion.flag}</div><div class="bk-champion-name">${champion.name}</div>` : '🏆'}</div>`;
   html += `</div></div>`;
@@ -1261,14 +1410,15 @@ function renderWinners() {
   const voterStats = {};
   matchesToShow.forEach(m => {
     const r = results[m.id];
-    const correctChoice = r.score1 > r.score2 ? "team1" : r.score2 > r.score1 ? "team2" : "draw";
+    // Penalties settle a level knockout — for the result and the bettor's pick.
+    const correctChoice = getResultWinner(r);
     const voters = voterLog[m.id] || [];
     voters.forEach(v => {
       const key = v.email || v.name;
       if (!voterStats[key]) voterStats[key] = { name: v.name, email: v.email || "", won: 0, lost: 0, exact: 0, played: 0, matches: [], earliestVote: v.timestamp };
       const s = voterStats[key];
       s.played++;
-      const isWin = v.choice === correctChoice;
+      const isWin = getVoteWinner(v, m) === correctChoice;
       const isExact = v.score1 === r.score1 && v.score2 === r.score2;
       if (isWin) {
         s.won++;
@@ -1365,8 +1515,9 @@ function renderMyVotes() {
     const r = results[m.id];
     if (!r) { pending++; return; }
     const v = votes[m.id];
-    const winner = r.score1 > r.score2 ? "team1" : r.score2 > r.score1 ? "team2" : "draw";
-    const userChoice = v && typeof v === "object" ? (v.score1 > v.score2 ? "team1" : v.score2 > v.score1 ? "team2" : "draw") : v;
+    const winner = getResultWinner(r);
+    // Penalties decide a level knockout, for both the result and the prediction.
+    const userChoice = v && typeof v === "object" ? getVoteWinner(v, m) : v;
     if (userChoice === winner) {
       won++;
       if (v && typeof v === "object" && v.score1 === r.score1 && v.score2 === r.score2) exact++;
@@ -1487,12 +1638,41 @@ function submitResult(matchId) {
   }
   const match = MATCHES.find(m => m.id === matchId);
   const resolved = resolveKnockoutTeams(match);
-  if (!confirm(`Set result: ${resolved.team1} ${s1} - ${s2} ${resolved.team2}?`)) return;
+  const result = { score1: s1, score2: s2 };
 
-  results[matchId] = { score1: s1, score2: s2 };
+  // Knockout matches can't finish level — capture the penalty shootout winner.
+  if (isKnockoutMatch(match)) {
+    const p1el = document.getElementById(`res-p1-${matchId}`);
+    const p2el = document.getElementById(`res-p2-${matchId}`);
+    const p1 = p1el ? parseInt(p1el.value) : NaN;
+    const p2 = p2el ? parseInt(p2el.value) : NaN;
+    const penEntered = !isNaN(p1) || !isNaN(p2);
+
+    if (s1 === s2) {
+      // A level knockout match must be settled on penalties.
+      if (isNaN(p1) || isNaN(p2) || p1 < 0 || p2 < 0) {
+        showToast("Knockout match is level — enter the penalty shootout score", "error");
+        return;
+      }
+      if (p1 === p2) {
+        showToast("A penalty shootout can't be a tie", "error");
+        return;
+      }
+      result.pen1 = p1;
+      result.pen2 = p2;
+    } else if (penEntered) {
+      // Penalties only apply to a drawn match; drop stray entries on a decisive score.
+      showToast("Match wasn't level — penalty scores ignored", "info");
+    }
+  }
+
+  const penLabel = hasPenalties(result) ? ` (pen ${result.pen1}-${result.pen2})` : '';
+  if (!confirm(`Set result: ${resolved.team1} ${s1} - ${s2} ${resolved.team2}${penLabel}?`)) return;
+
+  results[matchId] = result;
   localStorage.setItem("wc2026_results", JSON.stringify(results));
-  if (typeof fbSaveResult === "function") fbSaveResult(matchId, { score1: s1, score2: s2 });
-  showToast(`Result saved: ${resolved.team1} ${s1}-${s2} ${resolved.team2}`, "success");
+  if (typeof fbSaveResult === "function") fbSaveResult(matchId, result);
+  showToast(`Result saved: ${resolved.team1} ${s1}-${s2} ${resolved.team2}${penLabel}`, "success");
   render();
 }
 

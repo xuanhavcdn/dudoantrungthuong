@@ -60,6 +60,16 @@ ${schedule}
     function validScore(v) {
       return v is int && v >= 0 && v <= 30;
     }
+    // Penalty shootout score is optional; when present both sides must be sane.
+    function validPenalties(data) {
+      return (!('pen1' in data) && !('pen2' in data))
+        || (validScore(data.pen1) && validScore(data.pen2));
+    }
+    // A predicted penalty winner, when present, must name one of the two teams.
+    function validPenWinner(data) {
+      return !('penWinner' in data)
+        || data.penWinner == 'team1' || data.penWinner == 'team2';
+    }
     // A vote/voterLog write must target a real, still-open match with sane
     // scores. docId is kept as "<email>_<matchId>" so each identity has a single
     // row per match (the app builds it this way). Other fields (choice, team
@@ -70,6 +80,7 @@ ${schedule}
         && docId == data.email + '_' + data.matchId
         && validScore(data.score1) && validScore(data.score2)
         && (!('name' in data) || (data.name is string && data.name.size() <= 80))
+        && validPenWinner(data)
         && votingOpen(data.matchId);
     }
 
@@ -78,7 +89,8 @@ ${schedule}
       allow read: if true;
       allow write: if request.method == 'delete'
         || (validScore(request.resource.data.score1)
-            && validScore(request.resource.data.score2));
+            && validScore(request.resource.data.score2)
+            && validPenalties(request.resource.data));
     }
 
     // ===== votes (one row per identity per match) =====

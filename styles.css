@@ -746,6 +746,97 @@ body > * {
   color: var(--text-dim);
 }
 
+/* Penalty shootout score on the match card */
+.match-pen {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  text-shadow: none;
+}
+
+/* Predicted penalty winner shown in the locked prediction line */
+.prediction-pen {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+/* User penalty-winner picker (knockout vote form) */
+.pen-vote-row {
+  margin-top: 8px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.pen-vote-label {
+  display: block;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.pen-vote-options {
+  display: flex;
+  gap: 8px;
+}
+
+.pen-opt {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  text-align: center;
+  transition: border-color 0.2s, background 0.2s, color 0.2s;
+}
+
+.pen-opt input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.pen-opt.sel,
+.pen-opt:has(input:checked) {
+  border-color: var(--accent);
+  background: rgba(251, 191, 36, 0.12);
+  color: var(--text);
+}
+
+/* Admin penalty inputs (knockout result entry) */
+.admin-pen-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed rgba(245, 158, 11, 0.3);
+}
+
+.admin-pen-label {
+  flex-basis: 100%;
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: var(--gold);
+  letter-spacing: 0.04em;
+}
+
 .svf-btn {
   padding: 8px 16px;
   border-radius: 6px;
