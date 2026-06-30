@@ -81,6 +81,7 @@ ${schedule}
         && validScore(data.score1) && validScore(data.score2)
         && (!('name' in data) || (data.name is string && data.name.size() <= 80))
         && validPenWinner(data)
+        && validPenalties(data)
         && votingOpen(data.matchId);
     }
 

@@ -702,6 +702,19 @@ body > * {
   border-radius: 8px;
 }
 
+/* Equal flex spacers flank the score/penalty inputs so the team-input-input
+   cluster sits dead-center in the card and the two rows line up vertically;
+   the Vote button rides the right spacer without shifting the centered group. */
+.svf-side {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.svf-side-btn {
+  display: flex;
+  justify-content: flex-end;
+}
+
 .svf-team {
   font-size: 0.75rem;
   font-weight: 600;
@@ -709,8 +722,15 @@ body > * {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 100px;
+  /* Fixed, equal width on both labels so the score inputs land dead-center
+     of the card (and the score row lines up with the penalty row). */
+  flex: 0 0 5.5rem;
+  width: 5.5rem;
+  max-width: 5.5rem;
 }
+
+.svf-team-l { text-align: right; }
+.svf-team-r { text-align: left; }
 
 .svf-input {
   width: 48px;
@@ -779,43 +799,15 @@ body > * {
   font-weight: 700;
   color: var(--text-muted);
   margin-bottom: 8px;
+  text-align: center;
 }
 
-.pen-vote-options {
-  display: flex;
-  gap: 8px;
-}
-
-.pen-opt {
-  flex: 1;
+/* Penalty shootout score the bettor predicts for a level knockout */
+.pen-vote-score {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding: 8px 10px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--bg);
-  font-size: 0.78rem;
-  font-weight: 600;
-  color: var(--text-muted);
-  cursor: pointer;
-  text-align: center;
-  transition: border-color 0.2s, background 0.2s, color 0.2s;
-}
-
-.pen-opt input {
-  position: absolute;
-  opacity: 0;
-  width: 0;
-  height: 0;
-}
-
-.pen-opt.sel,
-.pen-opt:has(input:checked) {
-  border-color: var(--accent);
-  background: rgba(251, 191, 36, 0.12);
-  color: var(--text);
+  gap: 8px;
 }
 
 /* Admin penalty inputs (knockout result entry) */
@@ -1042,6 +1034,13 @@ body > * {
   background: rgba(148, 163, 184, 0.15);
 }
 
+/* Penalty-shootout winner inside a draw pick — highlight the advancing team
+   in the same yellow accent used for a straight team win. */
+.voter-choice .voter-pen-win {
+  color: var(--accent);
+  font-weight: 700;
+}
+
 .vote-bar-container {
   display: flex;
   gap: 4px;
@@ -1211,12 +1210,6 @@ body > * {
   margin-top: 4px;
 }
 
-.winner-matches {
-  font-size: 0.75rem;
-  color: var(--text-muted);
-  margin-top: 4px;
-}
-
 .stat-won { color: var(--green); font-weight: 700; }
 .stat-lost { color: var(--red); font-weight: 700; }
 
@@ -1302,51 +1295,6 @@ body > * {
 
 .winner-flag {
   font-size: 2.5rem;
-}
-
-.winners-filter {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin-bottom: 20px;
-  padding: 16px;
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-}
-
-.wf-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.wf-matches {
-  padding-top: 10px;
-  border-top: 1px solid var(--border);
-}
-
-.winners-filter-btn {
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 20px;
-  padding: 8px 16px;
-  font-size: 0.75rem;
-  font-weight: 500;
-  color: var(--text-muted);
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.winners-filter-btn:hover {
-  border-color: rgba(251, 191, 36, 0.4);
-  color: var(--text);
-}
-
-.winners-filter-btn.active {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #fff;
 }
 
 /* My Votes */
@@ -1950,15 +1898,31 @@ body > * {
   .match-score { font-size: 1.4rem; }
   .match-winner-banner { font-size: 0.72rem; padding: 6px 10px; }
 
-  /* Score vote form */
+  /* Score vote form — on small screens the inline Vote button would overflow,
+     so drop the empty spacers and let the button sit centered on its own line
+     below the inputs. Both rows then reduce to the centered input cluster and
+     line up vertically. */
   .score-vote-form {
     flex-wrap: wrap;
     gap: 6px;
     padding: 10px;
+    justify-content: center;
   }
+  .pen-vote-score {
+    gap: 6px;
+    justify-content: center;
+  }
+  .svf-side:not(.svf-side-btn) { display: none; }
+  .svf-side-btn { flex: 0 0 100%; justify-content: center; }
+  /* Spacers are gone on mobile and the cluster centers via justify-content, so
+     the labels no longer need a fixed width — let them size to their content and
+     show the full country name instead of truncating it. */
   .svf-team {
     font-size: 0.65rem;
-    max-width: 70px;
+    flex: 0 1 auto;
+    width: auto;
+    max-width: none;
+    overflow: visible;
   }
   .svf-input {
     width: 40px;
@@ -2003,11 +1967,7 @@ body > * {
   .winner-rank { font-size: 1.2rem; width: 32px; }
   .winner-team { font-size: 0.95rem; }
   .winner-stats { font-size: 0.72rem; }
-  .winner-matches { font-size: 0.65rem; }
   .winner-time { font-size: 0.62rem; }
-  .winners-filter { padding: 12px; gap: 8px; }
-  .winners-filter-btn { padding: 6px 10px; font-size: 0.68rem; }
-  .wf-matches { padding-top: 8px; }
 
   /* Votes summary */
   .votes-summary { padding: 16px; }
@@ -2044,7 +2004,8 @@ body > * {
   .match-score { font-size: 1.2rem; }
 
   .score-vote-form { justify-content: center; }
-  .svf-team { max-width: 55px; font-size: 0.6rem; }
+  /* Keep full country names on the narrowest phones too (no fixed width). */
+  .svf-team { max-width: none; width: auto; font-size: 0.6rem; }
   .svf-input { width: 36px; font-size: 0.9rem; }
 
   .standings-table th { font-size: 0.55rem; padding: 5px 2px; }
@@ -2052,7 +2013,6 @@ body > * {
 
   .winner-card { padding: 10px 8px; gap: 8px; }
   .winner-rank { font-size: 1rem; width: 28px; }
-  .winners-filter-btn { padding: 5px 8px; font-size: 0.62rem; }
 }
 
 /* ===== Background Music ===== */

@@ -7,8 +7,6 @@ let results = JSON.parse(localStorage.getItem("wc2026_results") || "{}");
 let userProfile = JSON.parse(localStorage.getItem("wc2026_user") || "null");
 let pendingVote = null;
 let expandedVoters = {}; // track which match cards have voter list open
-let winnersMatchFilter = "all"; // filter for winners tab
-let winnersGroupFilter = "all"; // group filter for winners tab
 let currentDateFilter = "all"; // date filter: "all", "today", "3days", or a specific date
 let currentStatusFilter = "all"; // status filter: "all", "upcoming", "finished"
 let adminMode = localStorage.getItem("wc2026_admin") === "true";
@@ -332,10 +330,15 @@ function getVoteWinner(vote, match) {
   return base;
 }
 
-// Read the currently selected penalty-winner radio in a vote form.
-function readPenWinner(matchId) {
-  const sel = document.querySelector(`input[name="pen-${matchId}"]:checked`);
-  return sel ? sel.value : null;
+// Read the penalty-shootout score the bettor entered in a knockout vote form.
+// Returns { pen1, pen2 } as ints — NaN when a field is left blank.
+function readVotePenScore(matchId) {
+  const el1 = document.getElementById(`svf-p1-${matchId}`);
+  const el2 = document.getElementById(`svf-p2-${matchId}`);
+  return {
+    pen1: el1 ? parseInt(el1.value) : NaN,
+    pen2: el2 ? parseInt(el2.value) : NaN,
+  };
 }
 
 function renderMatchFilters() {
@@ -583,10 +586,14 @@ function renderVoteForm(match, vote, votingDisabled, locked, notYetOpen, result,
   // vote is now an object: { score1, score2 } or legacy string
   const userVote = typeof vote === 'object' && vote !== null ? vote : null;
 
-  // Did the user pick a penalty winner for a predicted knockout draw?
+  // Did the user predict a penalty shootout for a level knockout match?
   const showVotePen = userVote && isKnockoutMatch(match) && userVote.penWinner &&
     userVote.score1 === userVote.score2;
   const votePenName = showVotePen ? (userVote.penWinner === 'team1' ? match.team1 : match.team2) : '';
+  const hasVotePenScore = showVotePen && userVote.pen1 != null && userVote.pen2 != null;
+  const votePenText = !showVotePen ? ''
+    : hasVotePenScore ? `pen: ${match.team1} ${userVote.pen1}-${userVote.pen2} ${match.team2}`
+    : `pen: ${votePenName}`;
 
   let voteResultClass = '';
   if (userVote && result) {
@@ -605,7 +612,7 @@ function renderVoteForm(match, vote, votingDisabled, locked, notYetOpen, result,
   const userPredictionHtml = showLockedPrediction ? `
     <div class="user-prediction ${voteResultClass}">
       <span class="prediction-label">Your prediction:</span>
-      <span class="prediction-score">${match.team1} ${userVote.score1} - ${userVote.score2} ${match.team2}${showVotePen ? ` <span class="prediction-pen">(pen: ${votePenName})</span>` : ''}</span>
+      <span class="prediction-score">${match.team1} ${userVote.score1} - ${userVote.score2} ${match.team2}${showVotePen ? ` <span class="prediction-pen">(${votePenText})</span>` : ''}</span>
       ${result ? (voteResultClass === 'vote-exact' ? '<span class="prediction-badge exact">Win (exact!)</span>' : voteResultClass === 'vote-correct-winner' ? '<span class="prediction-badge correct">Win</span>' : '<span class="prediction-badge wrong">Lose</span>') : ''}
     </div>
   ` : '';
@@ -630,22 +637,25 @@ function renderVoteForm(match, vote, votingDisabled, locked, notYetOpen, result,
     const s1 = userVote ? userVote.score1 : '';
     const s2 = userVote ? userVote.score2 : '';
 
-    // Knockout matches can't end level — let the bettor pick who advances on penalties.
+    // Knockout matches can't end level — let the bettor predict the penalty
+    // shootout score (only required if they predicted a draw). The advancing
+    // team is derived from this score; the score itself is just a richer
+    // prediction and does not change win/lose scoring.
     let penPickHtml = '';
     if (isKnockoutMatch(match)) {
-      const pw = userVote && userVote.penWinner ? userVote.penWinner : '';
+      const pp1 = userVote && userVote.pen1 != null ? userVote.pen1 : '';
+      const pp2 = userVote && userVote.pen2 != null ? userVote.pen2 : '';
       penPickHtml = `
         <div class="pen-vote-row">
-          <span class="pen-vote-label">⚽ If drawn — who advances on penalties?</span>
-          <div class="pen-vote-options">
-            <label class="pen-opt ${pw === 'team1' ? 'sel' : ''}">
-              <input type="radio" name="pen-${match.id}" value="team1" ${pw === 'team1' ? 'checked' : ''}>
-              <span>${match.flag1} ${match.team1}</span>
-            </label>
-            <label class="pen-opt ${pw === 'team2' ? 'sel' : ''}">
-              <input type="radio" name="pen-${match.id}" value="team2" ${pw === 'team2' ? 'checked' : ''}>
-              <span>${match.flag2} ${match.team2}</span>
-            </label>
+          <span class="pen-vote-label">⚽ If drawn — predict the penalty shootout score</span>
+          <div class="pen-vote-score">
+            <span class="svf-side"></span>
+            <span class="svf-team svf-team-l">${match.flag1} ${match.team1}</span>
+            <input type="number" min="0" max="30" class="svf-input" id="svf-p1-${match.id}" value="${pp1}" placeholder="–">
+            <span class="svf-separator">-</span>
+            <input type="number" min="0" max="30" class="svf-input" id="svf-p2-${match.id}" value="${pp2}" placeholder="–">
+            <span class="svf-team svf-team-r">${match.team2} ${match.flag2}</span>
+            <span class="svf-side"></span>
           </div>
         </div>
       `;
@@ -653,12 +663,13 @@ function renderVoteForm(match, vote, votingDisabled, locked, notYetOpen, result,
 
     formHtml = `
       <div class="score-vote-form">
-        <span class="svf-team">${match.flag1} ${match.team1}</span>
+        <span class="svf-side"></span>
+        <span class="svf-team svf-team-l">${match.flag1} ${match.team1}</span>
         <input type="number" min="0" max="20" class="svf-input" id="svf-s1-${match.id}" value="${s1}" placeholder="0">
         <span class="svf-separator">-</span>
         <input type="number" min="0" max="20" class="svf-input" id="svf-s2-${match.id}" value="${s2}" placeholder="0">
-        <span class="svf-team">${match.team2} ${match.flag2}</span>
-        <button class="svf-btn" onclick="castScoreVote('${match.id}')">${userVote ? 'Update' : 'Vote'}</button>
+        <span class="svf-team svf-team-r">${match.team2} ${match.flag2}</span>
+        <span class="svf-side svf-side-btn"><button class="svf-btn" onclick="castScoreVote('${match.id}')">${userVote ? 'Update' : 'Vote'}</button></span>
       </div>
       ${penPickHtml}
     `;
@@ -740,7 +751,7 @@ async function submitProfile(e) {
   if (pendingVote) {
     const pv = pendingVote;
     const choice = pv.score1 > pv.score2 ? "team1" : pv.score2 > pv.score1 ? "team2" : "draw";
-    recordVote(pv.matchId, choice, pv.score1, pv.score2, false, pv.penWinner);
+    recordVote(pv.matchId, choice, pv.score1, pv.score2, false, { penWinner: pv.penWinner, pen1: pv.pen1, pen2: pv.pen2 });
     pendingVote = null;
   }
   render();
@@ -779,50 +790,59 @@ function checkVotingWindow(matchId) {
   return null;
 }
 
-// Resolve the penalty pick for a knockout draw prediction.
-// Returns { ok, penWinner } — ok is false when a pick is required but missing.
-function resolveVotePenWinner(matchId, s1, s2) {
+// Resolve the penalty-shootout prediction for a knockout draw.
+// Returns { ok, penWinner, pen1, pen2, reason }. A penalty score is required
+// (and can't be level) only when the bettor predicts a drawn knockout match;
+// otherwise there is nothing to resolve. The advancing team (penWinner) is
+// derived from the score so it stays consistent with the predicted shootout.
+function resolveVotePen(matchId, s1, s2) {
   const match = MATCHES.find(m => m.id === matchId);
-  if (!match || !isKnockoutMatch(match) || s1 !== s2) return { ok: true, penWinner: null };
-  const penWinner = readPenWinner(matchId);
-  if (!penWinner) return { ok: false, penWinner: null };
-  return { ok: true, penWinner };
+  if (!match || !isKnockoutMatch(match) || s1 !== s2) {
+    return { ok: true, penWinner: null, pen1: null, pen2: null };
+  }
+  const { pen1, pen2 } = readVotePenScore(matchId);
+  if (isNaN(pen1) || isNaN(pen2) || pen1 < 0 || pen2 < 0) return { ok: false, reason: "missing" };
+  if (pen1 === pen2) return { ok: false, reason: "tie" };
+  return { ok: true, penWinner: pen1 > pen2 ? "team1" : "team2", pen1, pen2 };
+}
+
+// Human-friendly message when a knockout draw is missing a valid pen score.
+function penErrorMsg(reason) {
+  return reason === "tie"
+    ? "A penalty shootout can't end level — enter a winning penalty score"
+    : "You predicted a draw — enter the penalty shootout score";
 }
 
 function castScoreVote(matchId) {
   const err = checkVotingWindow(matchId);
   if (err) { showToast(err, "error"); return; }
 
+  const s1 = parseInt(document.getElementById(`svf-s1-${matchId}`).value);
+  const s2 = parseInt(document.getElementById(`svf-s2-${matchId}`).value);
+  if (isNaN(s1) || isNaN(s2) || s1 < 0 || s2 < 0) { showToast("Enter valid scores", "error"); return; }
+
+  const pen = resolveVotePen(matchId, s1, s2);
+  if (!pen.ok) { showToast(penErrorMsg(pen.reason), "error"); return; }
+
   if (!userProfile) {
-    const s1 = parseInt(document.getElementById(`svf-s1-${matchId}`).value);
-    const s2 = parseInt(document.getElementById(`svf-s2-${matchId}`).value);
-    if (isNaN(s1) || isNaN(s2) || s1 < 0 || s2 < 0) { showToast("Enter valid scores", "error"); return; }
-    const pen = resolveVotePenWinner(matchId, s1, s2);
-    if (!pen.ok) { showToast("You predicted a draw — pick who advances on penalties", "error"); return; }
-    pendingVote = { matchId, score1: s1, score2: s2, penWinner: pen.penWinner };
+    pendingVote = { matchId, score1: s1, score2: s2, penWinner: pen.penWinner, pen1: pen.pen1, pen2: pen.pen2 };
     openProfileModal();
     return;
   }
 
-  const s1 = parseInt(document.getElementById(`svf-s1-${matchId}`).value);
-  const s2 = parseInt(document.getElementById(`svf-s2-${matchId}`).value);
-  if (isNaN(s1) || isNaN(s2) || s1 < 0 || s2 < 0) {
-    showToast("Enter valid scores", "error");
-    return;
-  }
-
-  const pen = resolveVotePenWinner(matchId, s1, s2);
-  if (!pen.ok) { showToast("You predicted a draw — pick who advances on penalties", "error"); return; }
-
   const isUpdate = !!votes[matchId];
   const choice = s1 > s2 ? "team1" : s2 > s1 ? "team2" : "draw";
-  recordVote(matchId, choice, s1, s2, isUpdate, pen.penWinner);
+  recordVote(matchId, choice, s1, s2, isUpdate, pen);
   render();
 }
 
-function recordVote(matchId, choice, score1, score2, isUpdate, penWinner) {
+function recordVote(matchId, choice, score1, score2, isUpdate, pen) {
+  const penWinner = pen && pen.penWinner ? pen.penWinner : null;
+  const hasPenScore = pen && pen.pen1 != null && pen.pen2 != null;
+
   const voteObj = { score1, score2 };
   if (penWinner) voteObj.penWinner = penWinner;
+  if (hasPenScore) { voteObj.pen1 = pen.pen1; voteObj.pen2 = pen.pen2; }
   votes[matchId] = voteObj;
   localStorage.setItem("wc2026_votes", JSON.stringify(votes));
 
@@ -842,6 +862,7 @@ function recordVote(matchId, choice, score1, score2, isUpdate, penWinner) {
     timestamp: new Date().toISOString()
   };
   if (penWinner) voterEntry.penWinner = penWinner;
+  if (hasPenScore) { voterEntry.pen1 = pen.pen1; voterEntry.pen2 = pen.pen2; }
   voterLog[matchId].push(voterEntry);
   localStorage.setItem("wc2026_voterlog", JSON.stringify(voterLog));
 
@@ -863,13 +884,14 @@ function recordVote(matchId, choice, score1, score2, isUpdate, penWinner) {
     fbData.penWinner = penWinner;
     fbData.penWinnerName = penWinnerName;
   }
+  if (hasPenScore) { fbData.pen1 = pen.pen1; fbData.pen2 = pen.pen2; }
   fbSaveVote(matchId, fbData, userProfile.email);
   fbSaveVoterLog(matchId, fbData);
 
   // Sync to live Google Sheet (no-op if SHEETS_WEBHOOK_URL is empty)
   if (typeof gsSaveVote === "function") gsSaveVote(match, choice, score1, score2);
 
-  const penLabel = penWinner ? ` (pen: ${penWinnerName})` : '';
+  const penLabel = hasPenScore ? ` (pen ${pen.pen1}-${pen.pen2})` : penWinner ? ` (pen: ${penWinnerName})` : '';
   const matchLabel = `${match.team1} ${score1}-${score2} ${match.team2}${penLabel}`;
   showToast(isUpdate ? `Vote updated: ${matchLabel}` : `Vote recorded: ${matchLabel}`, "success");
 }
@@ -948,7 +970,9 @@ function renderVoterList(match) {
     if (v.choice === "team1") return match.team1;
     if (v.choice === "team2") return match.team2;
     if (v.penWinner && isKnockoutMatch(match)) {
-      return `Draw → ${v.penWinner === "team1" ? match.team1 : match.team2}`;
+      const adv = v.penWinner === "team1" ? match.team1 : match.team2;
+      const penScore = v.pen1 != null && v.pen2 != null ? ` (${v.pen1}-${v.pen2} pen)` : '';
+      return `Draw → <span class="voter-pen-win">${adv}</span>${penScore}`;
     }
     return "Draw";
   };
@@ -1354,17 +1378,6 @@ function calculateStandings(group) {
 }
 
 // Winners View
-function setWinnersFilter(matchId) {
-  winnersMatchFilter = matchId;
-  renderWinners();
-}
-
-function setWinnersGroupFilter(group) {
-  winnersGroupFilter = group;
-  winnersMatchFilter = "all";
-  renderWinners();
-}
-
 function renderWinners() {
   const finishedMatches = MATCHES.filter(m => results[m.id]);
 
@@ -1379,28 +1392,8 @@ function renderWinners() {
     return;
   }
 
-  // Group filter
-  const finishedGroups = [...new Set(finishedMatches.map(m => m.group))];
-  let filterHtml = `<div class="winners-filter">
-    <div class="wf-row">
-      <button class="winners-filter-btn ${winnersGroupFilter === 'all' ? 'active' : ''}" onclick="setWinnersGroupFilter('all')">All Groups</button>`;
-  finishedGroups.forEach(g => {
-    filterHtml += `<button class="winners-filter-btn ${winnersGroupFilter === g ? 'active' : ''}" onclick="setWinnersGroupFilter('${g}')">Group ${g}</button>`;
-  });
-  filterHtml += `</div>`;
-
-  // Match filter (filtered by selected group)
-  const groupFilteredMatches = winnersGroupFilter === "all" ? finishedMatches : finishedMatches.filter(m => m.group === winnersGroupFilter);
-  filterHtml += `<div class="wf-row wf-matches">
-    <button class="winners-filter-btn ${winnersMatchFilter === 'all' ? 'active' : ''}" onclick="setWinnersFilter('all')">All Matches</button>`;
-  groupFilteredMatches.forEach(m => {
-    const r = results[m.id];
-    filterHtml += `<button class="winners-filter-btn ${winnersMatchFilter === m.id ? 'active' : ''}" onclick="setWinnersFilter('${m.id}')">${m.flag1} ${r.score1}-${r.score2} ${m.flag2}</button>`;
-  });
-  filterHtml += `</div></div>`;
-
-  // Get voters per match
-  const matchesToShow = winnersMatchFilter === "all" ? groupFilteredMatches : groupFilteredMatches.filter(m => m.id === winnersMatchFilter);
+  // All finished matches are tallied (no group/match filtering).
+  const matchesToShow = finishedMatches;
 
   // Tally results per voter (grouped by email) across selected matches.
   // Calculation is win/draw/lose based: a prediction is a WIN when its outcome
@@ -1415,7 +1408,7 @@ function renderWinners() {
     const voters = voterLog[m.id] || [];
     voters.forEach(v => {
       const key = v.email || v.name;
-      if (!voterStats[key]) voterStats[key] = { name: v.name, email: v.email || "", won: 0, lost: 0, exact: 0, played: 0, matches: [], earliestVote: v.timestamp };
+      if (!voterStats[key]) voterStats[key] = { name: v.name, email: v.email || "", won: 0, lost: 0, exact: 0, played: 0, earliestVote: v.timestamp };
       const s = voterStats[key];
       s.played++;
       const isWin = getVoteWinner(v, m) === correctChoice;
@@ -1423,10 +1416,8 @@ function renderWinners() {
       if (isWin) {
         s.won++;
         if (isExact) s.exact++;
-        s.matches.push({ ...m, badge: isExact ? "exact" : "win" });
       } else {
         s.lost++;
-        s.matches.push({ ...m, badge: "lose" });
       }
       if (v.timestamp < s.earliestVote) s.earliestVote = v.timestamp;
     });
@@ -1442,8 +1433,7 @@ function renderWinners() {
 
   const top3 = sortedVoters.slice(0, 3);
 
-  let html = filterHtml;
-  html += `<div class="winners-title">🏆 Top 3 Predictors</div>`;
+  let html = `<div class="winners-title">🏆 Top 3 Predictors</div>`;
   html += `<div class="winners-explainer">Win = correct outcome (win / draw / lose) · Exact = exact score · Tiebreaker: fewest losses, then earliest vote</div>`;
 
   if (top3.length === 0) {
@@ -1451,12 +1441,6 @@ function renderWinners() {
   } else {
     top3.forEach((voter, i) => {
       const rank = i === 0 ? "🥇" : i === 1 ? "🥈" : "🥉";
-      const matchDetails = voter.matches.map(m => {
-        const badge = m.badge === "exact" ? '<span class="prediction-badge exact">Exact</span>'
-          : m.badge === "win" ? '<span class="prediction-badge correct">Win</span>'
-          : '<span class="prediction-badge wrong">Lose</span>';
-        return `<span>${m.flag1} ${m.team1} vs ${m.team2} ${m.flag2} ${badge}</span>`;
-      }).join(" ");
       const voteTime = new Date(voter.earliestVote).toLocaleString("en-GB", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false });
       html += `
         <div class="winner-card top-${i + 1}">
@@ -1464,7 +1448,6 @@ function renderWinners() {
           <div class="winner-info">
             <div class="winner-team">${escapeHtml(voter.name)}</div>
             <div class="winner-stats"><span class="stat-won">${voter.won} won</span> · <span class="stat-lost">${voter.lost} lost</span>${voter.exact ? ` · ${voter.exact} exact` : ''}</div>
-            <div class="winner-matches">${matchDetails}</div>
             <div class="winner-time">First vote: ${voteTime}</div>
           </div>
         </div>

@@ -84,6 +84,8 @@ async function fbLoadAllVoterLogs() {
         score1: d.score1,
         score2: d.score2,
         penWinner: d.penWinner,
+        pen1: d.pen1,
+        pen2: d.pen2,
         timestamp: d.timestamp,
       });
     });
@@ -105,6 +107,7 @@ async function fbLoadUserVotes(userEmail) {
       if (d.score1 !== undefined && d.score2 !== undefined) {
         const v = { score1: d.score1, score2: d.score2 };
         if (d.penWinner) v.penWinner = d.penWinner;
+        if (d.pen1 != null && d.pen2 != null) { v.pen1 = d.pen1; v.pen2 = d.pen2; }
         votes[d.matchId] = v;
       } else if (d.choice) {
         votes[d.matchId] = d.choice;
